@@ -1,0 +1,8 @@
+# Configuration parameters
+
+BOOTSTRAP_NODE = '127.0.0.1'
+BOOTSTRAP_PORT = 5000
+
+TOTAL_NODES = 15
+
+MESSAGE_PORT_START = 6000
