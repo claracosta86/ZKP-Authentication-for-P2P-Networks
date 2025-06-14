@@ -15,9 +15,13 @@ class PrimeGenerator:
     
     @staticmethod
     def find_generator(p, q):
-        for g in range(2, p):
-            if pow(g, q, p) != 1:
+        h = 2
+        while h < p:
+            # Find element of order q
+            g = pow(h, (p - 1) // q, p)
+            if g > 1:
                 return g
+            h += 1
         raise Exception("No generator found.")
 
 class SchnorrZKP:
