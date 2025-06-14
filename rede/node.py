@@ -1,16 +1,79 @@
+import hashlib
+import secrets
 import socket
 import random
+
+from rede.models.ca_models import RegisterCertificateRequest, Certificate
 from zkp import SchnorrZKP
 
 class VehicleNode:
-    def __init__(self, ip, port, bootstrap_ip, bootstrap_port, p, q, g):
+    def __init__(self, ip, port, bootstrap_ip, bootstrap_port, ca_public_key, p, q, g):
+        """
+        Initializes a VehicleNode instance.
+
+        Args:
+            ip (str): The IP address of the node.
+            port (int): The port number of the node.
+            bootstrap_ip (str): The IP address of the bootstrap node.
+            bootstrap_port (int): The port number of the bootstrap node.
+            p (int): A prime number used in the Zero-Knowledge Proof (ZKP) protocol.
+            q (int): A prime divisor of (p-1) used in the ZKP protocol.
+            g (int): A generator for the cyclic group used in the ZKP protocol.
+
+        Attributes:
+            ip (str): Stores the IP address of the node.
+            port (int): Stores the port number of the node.
+            certificate (str): Stores the certificate of the node.
+            bootstrap_ip (str): Stores the IP address of the bootstrap node.
+            bootstrap_port (int): Stores the port number of the bootstrap node.
+            peers (list): A list of tuples containing the IP and port of connected peers.
+            zkp (SchnorrZKP): An instance of the Schnorr Zero-Knowledge Proof protocol.
+        """
+
+        self.id = f"Vehicle{port}"
         self.ip = ip
         self.port = port
+        self.certificate = None
         self.bootstrap_ip = bootstrap_ip
         self.bootstrap_port = bootstrap_port
         self.peers = []
+        self.ca_public_key = ca_public_key
+
+        self.p = p
+        self.q = q
+        self.g = g
+        self.private_key = self.init_private_key() # private key
+        self.public_key = pow(self.g, self.private_key, self.p) # public key
+
         self.zkp = SchnorrZKP(p, q, g)
         self.peer_public_keys = {}
+
+    def set_certificate(self, certificate):
+        self.certificate = certificate
+
+    def init_private_key(self):
+        # Generate a random number ru
+        ru = secrets.randbelow(self.q)
+        h = hashlib.sha256()
+        # Hash the id and ru
+        h.update(self.id.encode('utf-8'))
+        h.update(str(ru).encode('utf-8'))
+
+        return int.from_bytes(h.digest(), 'big') % self.q
+
+    def get_registration_request(self):
+        return RegisterCertificateRequest(self.id, self.public_key)
+
+    def validate_certificate(self, certificate: Certificate):
+        r, s = certificate.r, certificate.s  # signature components
+        e = int.from_bytes(hashlib.sha256(str(certificate.public_key).encode() + str(r).encode()).digest(),
+                           'big') % self.q
+
+        # Verify g^s = r * (Ks_pub)^e mod p
+        left_side = pow(self.g, s, self.p)
+        right_side = (r * pow(self.ca_public_key, e, self.p)) % self.p
+
+        return left_side == right_side
 
     def register_with_bootstrap(self):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
