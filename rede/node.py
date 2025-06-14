@@ -64,16 +64,27 @@ class VehicleNode:
     def get_registration_request(self):
         return RegisterCertificateRequest(self.id, self.public_key)
 
-    def validate_certificate(self, certificate: Certificate):
-        r, s = certificate.r, certificate.s  # signature components
-        e = int.from_bytes(hashlib.sha256(str(certificate.public_key).encode() + str(r).encode()).digest(),
-                           'big') % self.q
+    def validate_certificate(self, certificate: Certificate) -> bool:
+        """
+        Validates a certificate using Schnorr signature verification.
 
-        # Verify g^s = r * (Ks_pub)^e mod p
-        left_side = pow(self.g, s, self.p)
-        right_side = (r * pow(self.ca_public_key, e, self.p)) % self.p
+        Args:
+            certificate (Certificate): Certificate containing (public_key, r, s)
 
-        return left_side == right_side
+        Returns:
+            bool: True if signature is valid
+        """
+
+        # Convert integers to fixed-width bytes
+        pub_key_bytes = certificate.public_key.to_bytes((certificate.public_key.bit_length() + 7) // 8, 'big')
+        r_bytes = certificate.r.to_bytes((certificate.r.bit_length() + 7) // 8, 'big')
+
+        e = int.from_bytes(hashlib.sha256(pub_key_bytes + r_bytes).digest(), 'big') % self.q
+
+        left = pow(self.g, certificate.s, self.p)
+        right = (certificate.r * pow(self.ca_public_key, e, self.p)) % self.p
+
+        return left == right
 
     def register_with_bootstrap(self):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:

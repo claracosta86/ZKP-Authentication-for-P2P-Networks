@@ -1,5 +1,6 @@
 from rede import config
 from rede.ca.ca import CertificateAuthority
+from rede.models.ca_models import Certificate
 from rede.node import VehicleNode
 from rede.zkp import PrimeGenerator
 
@@ -23,7 +24,8 @@ def main():
     print("Certificate:", cert)
     print("CA Public Key (g^Ks mod p):", ca.get_ca_public_key())
 
-    print("Is valid certificate ?", user.validate_certificate(cert))
+    print("Should be valid certificate: ", user.validate_certificate(cert))
+    print("Should be invalid certificate: ", user.validate_certificate(Certificate(request.public_key, 12, 34)))
 
 if __name__ == "__main__":
     main()

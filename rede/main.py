@@ -3,7 +3,7 @@ import time
 from network import BootstrapServer
 from node import VehicleNode
 import config as config
-from rede.ca import CertificateAuthority
+from rede.ca.ca import CertificateAuthority
 from zkp import PrimeGenerator
 
 def main():
