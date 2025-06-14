@@ -29,8 +29,6 @@ class CertificateAuthority:
         # s = (k + e * Ks) mod
         s = (k + self.ca_private_key * e) % self.q
 
-        print("[Signing] p, q, g:", self.p, self.q, self.g)
-
         return Certificate(request.public_key, r, s)
 
     def get_ca_public_key(self):
