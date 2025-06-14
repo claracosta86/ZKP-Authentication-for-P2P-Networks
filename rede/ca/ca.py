@@ -20,13 +20,13 @@ class CertificateAuthority:
         r = pow(self.g, k, self.p)  # r = g^k mod p
 
         # Convert integers to fixed-width bytes
-        pub_key_bytes = request.public_key.to_bytes((request.public_key.bit_length() + 7) // 8, 'big')
-        r_bytes = r.to_bytes((r.bit_length() + 7) // 8, 'big')
+        pub_key_bytes = request.public_key.to_bytes(256, 'big')
+        r_bytes = r.to_bytes(256, 'big')
 
         # e = H(public_key || r) mod q
         e = int.from_bytes(hashlib.sha256(pub_key_bytes + r_bytes).digest(), 'big') % self.q
 
-        # s = (k + e * Ks) mod q
+        # s = (k + e * Ks) mod
         s = (k + self.ca_private_key * e) % self.q
 
         print("[Signing] p, q, g:", self.p, self.q, self.g)
