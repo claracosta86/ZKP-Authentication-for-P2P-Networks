@@ -4,10 +4,11 @@ import socket
 import random
 
 from rede.models.ca_models import RegisterCertificateRequest, Certificate
+from rede.utils import validate
 from zkp import SchnorrZKP
 
 class VehicleNode:
-    def __init__(self, ip, port, bootstrap_ip, bootstrap_port, ca_public_key, p, q, g):
+    def __init__(self, ip, port, ca_public_key, p, q, g):
         """
         Initializes a VehicleNode instance.
 
@@ -34,8 +35,6 @@ class VehicleNode:
         self.ip = ip
         self.port = port
         self.certificate = None
-        self.bootstrap_ip = bootstrap_ip
-        self.bootstrap_port = bootstrap_port
         self.peers = []
         self.ca_public_key = ca_public_key
 
@@ -48,7 +47,7 @@ class VehicleNode:
         self.zkp = SchnorrZKP(p, q, g)
         self.peer_public_keys = {}
 
-    def set_certificate(self, certificate):
+    def set_certificate(self, certificate: Certificate):
         self.certificate = certificate
 
     def init_private_key(self):
@@ -65,30 +64,12 @@ class VehicleNode:
         return RegisterCertificateRequest(self.id, self.public_key)
 
     def validate_certificate(self, certificate: Certificate) -> bool:
-        """
-        Validates a certificate using Schnorr signature verification.
+        return validate.validate_certificate(certificate, self.p, self.q, self.g, self.ca_public_key)
 
-        Args:
-            certificate (Certificate): Certificate containing (public_key, r, s)
 
-        Returns:
-            bool: True if signature is valid
-        """
-        # Convert integers to fixed-width bytes
-        pub_key_bytes = certificate.public_key.to_bytes(256, byteorder='big')
-        r_bytes = certificate.r.to_bytes(256, byteorder='big')
-
-        # Concatenate bytes directly
-        e = int.from_bytes(hashlib.sha256(pub_key_bytes + r_bytes).digest(), 'big') % self.q
-
-        left = pow(self.g, certificate.s, self.p)
-        right = (certificate.r * pow(self.ca_public_key, e, self.p)) % self.p
-
-        return left == right
-
-    def register_with_bootstrap(self):
+    def register_with_bootstrap(self, bootstrap_ip, bootstrap_port):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.connect((self.bootstrap_ip, self.bootstrap_port))
+            s.connect((bootstrap_ip, bootstrap_port))
             msg = f"REGISTER {self.ip} {self.port} {self.zkp.public}"
             s.send(msg.encode())
             peer_list = s.recv(4096).decode()

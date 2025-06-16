@@ -14,3 +14,14 @@ class Certificate:
 
     def __repr__(self):
         return f"Certificate(public_key={self.public_key}, s={self.s}, r={self.r})"
+
+    def to_bytes(self) -> bytes:
+        """Serialize certificate for network transmission"""
+        return f"{self.public_key},{self.r},{self.s}".encode()
+
+    @classmethod
+    def from_bytes(cls, data):
+        public_key = int.from_bytes(data[:256], 'big')
+        r = int.from_bytes(data[256:512], 'big')
+        s = int.from_bytes(data[512:], 'big')
+        return cls(public_key, r, s)

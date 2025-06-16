@@ -26,7 +26,7 @@ class CertificateAuthority:
         # e = H(public_key || r) mod q
         e = int.from_bytes(hashlib.sha256(pub_key_bytes + r_bytes).digest(), 'big') % self.q
 
-        # s = (k + e * Ks) mod
+        # s = (k + e * Ks) mod q
         s = (k + self.ca_private_key * e) % self.q
 
         return Certificate(request.public_key, r, s)

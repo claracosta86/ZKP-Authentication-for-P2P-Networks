@@ -1,0 +1,29 @@
+import hashlib
+
+from rede.models.ca_models import Certificate
+
+def validate_certificate(certificate: Certificate, p: int, q: int, g: int, ca_public_key: int) -> bool:
+    """
+    Validates a certificate using Schnorr signature verification.
+
+    Args:
+        certificate (Certificate): The certificate to validate, containing the public key, r, and s values.
+        p (int): A large prime number used as the modulus in the Schnorr signature scheme.
+        q (int): A prime divisor of p-1, representing the order of the subgroup.
+        g (int): A generator of the subgroup of order q in the multiplicative group modulo p.
+        ca_public_key (int): The public key of the Certificate Authority (CA) used for validation.
+
+    Returns:
+        bool: True if the certificate is valid, False otherwise.
+    """
+    # Convert integers to fixed-width bytes
+    pub_key_bytes = certificate.public_key.to_bytes(256, byteorder='big')
+    r_bytes = certificate.r.to_bytes(256, byteorder='big')
+
+    # Concatenate bytes directly
+    e = int.from_bytes(hashlib.sha256(pub_key_bytes + r_bytes).digest(), 'big') % q
+
+    left = pow(g, certificate.s, p)
+    right = (certificate.r * pow(ca_public_key, e, p)) % p
+
+    return left == right
