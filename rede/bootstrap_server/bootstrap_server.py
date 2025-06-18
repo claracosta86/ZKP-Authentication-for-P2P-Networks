@@ -5,7 +5,7 @@ from rede.models.ca_models import Certificate
 from rede.utils import validate
 
 
-class SuperPeer:
+class BootStrapServer:
     def __init__(self, ip, port, ca_public_key, p, q, g):
         self.ip = ip
         self.port = port
@@ -21,7 +21,7 @@ class SuperPeer:
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server.bind((self.ip, self.port))
         server.listen()
-        print(f"[SuperPeer] Listening on {self.ip}:{self.port}")
+        print(f"[BootStrapServer] Listening on {self.ip}:{self.port}")
 
         while True:
             conn, addr = server.accept()
@@ -41,7 +41,7 @@ class SuperPeer:
             else:
                 conn.send(b"INVALID_REQUEST")
         except Exception as e:
-            print(f"[SuperPeer] Error handling peer: {e}")
+            print(f"[BootStrapServer] Error handling peer: {e}")
         finally:
             conn.close()
 
@@ -53,7 +53,7 @@ class SuperPeer:
             conn.send(b"ACCEPTED")
             self.certificates.add(certificate)
             self.connected_nodes[certificate.public_key] = addr
-            print(f"[SuperPeer] New peer authenticated: {addr}")
+            print(f"[BootStrapServer] New peer authenticated: {addr}")
         else:
             conn.send(b"REJECTED")
 
@@ -71,7 +71,7 @@ class SuperPeer:
             certificates_to_send = list(self.certificates)[:k]
             for cert in certificates_to_send:
                 conn.send(cert.to_bytes())
-            print(f"[SuperPeer] Sent {len(certificates_to_send)} certificates to {addr}")
+            print(f"[BootStrapServer] Sent {len(certificates_to_send)} certificates to {addr}")
         else:
             conn.send(b"UNAUTHENTICATED")
-            print(f"[SuperPeer] Peer {addr} is not authenticated")
+            print(f"[BootStrapServer] Peer {addr} is not authenticated")

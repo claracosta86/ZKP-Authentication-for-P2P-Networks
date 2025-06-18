@@ -1,7 +1,7 @@
 import threading
 import time
 from network import BootstrapServer
-from node import VehicleNode
+from node import Node
 import config as config
 from rede.ca.ca import CertificateAuthority
 from zkp import PrimeGenerator
@@ -23,7 +23,7 @@ def main():
     nodes = []
     for i in range(config.TOTAL_NODES):
         port = config.MESSAGE_PORT_START + i
-        node = VehicleNode('127.0.0.1', port, config.BOOTSTRAP_NODE, config.BOOTSTRAP_PORT, ca.get_ca_public_key(), p, q, g)
+        node = Node('127.0.0.1', port, config.BOOTSTRAP_NODE, config.BOOTSTRAP_PORT, ca.get_ca_public_key(), p, q, g)
         cert = ca.sign_public_key(node.get_registration_request())
         node.set_certificate(cert)
         node.register_with_bootstrap()

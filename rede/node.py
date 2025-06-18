@@ -1,16 +1,18 @@
 import hashlib
+import pickle
 import secrets
 import socket
 import random
 
+from rede.ca.ca_server import CARequest
 from rede.models.ca_models import RegisterCertificateRequest, Certificate
 from rede.utils import validate
 from zkp import SchnorrZKP
 
-class VehicleNode:
+class Node:
     def __init__(self, ip, port, ca_public_key, p, q, g):
         """
-        Initializes a VehicleNode instance.
+        Initializes a Node instance.
 
         Args:
             ip (str): The IP address of the node.
@@ -31,7 +33,7 @@ class VehicleNode:
             zkp (SchnorrZKP): An instance of the Schnorr Zero-Knowledge Proof protocol.
         """
 
-        self.id = f"Vehicle{port}"
+        self.id = f"Node{port}"
         self.ip = ip
         self.port = port
         self.certificate = None
@@ -44,7 +46,6 @@ class VehicleNode:
         self.private_key = self.init_private_key() # private key
         self.public_key = pow(self.g, self.private_key, self.p) # public key
 
-        self.zkp = SchnorrZKP(p, q, g)
         self.peer_public_keys = {}
 
     def set_certificate(self, certificate: Certificate):
@@ -66,6 +67,25 @@ class VehicleNode:
     def validate_certificate(self, certificate: Certificate) -> bool:
         return validate.validate_certificate(certificate, self.p, self.q, self.g, self.ca_public_key)
 
+    def request_certificate(self, CA_HOST=None, CA_PORT=None) -> bool:
+        """Request certificate from CA server"""
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.connect((CA_HOST, CA_PORT))
+
+                request = CARequest(
+                    type="REGISTER",
+                    data=RegisterCertificateRequest(self.id, self.public_key)
+                )
+
+                s.send(pickle.dumps(request))
+                response = s.recv(4096)
+                self.certificate = pickle.loads(response)
+                return True
+
+        except Exception as e:
+            print(f"[Node {self.port}] Failed to get certificate: {e}")
+            return False
 
     def register_with_bootstrap(self, bootstrap_ip, bootstrap_port):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
