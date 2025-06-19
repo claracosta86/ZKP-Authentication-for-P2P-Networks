@@ -32,7 +32,7 @@ def main():
         node.register_with_bootstrap(config.BOOTSTRAP_NODE, config.BOOTSTRAP_PORT)
         threading.Thread(target=node.listen, daemon=True).start()
         nodes.append(node)
-
+        assert cert.public_key == node.zkp.public, f"Erro: nó {node.port} usa chave diferente da certificada!"
     time.sleep(2)
 
     # Send authenticated messages between random peers

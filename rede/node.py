@@ -42,17 +42,18 @@ class Node:
         self.bootstrap_port = bootstrap_port
         self.certificate = None
         self.peers = []
-        self.ca_public_key = ca_public_key
 
         self.p = p
         self.q = q
         self.g = g
         self.private_key = self.init_private_key() # private key
-        self.public_key = pow(self.g, self.private_key, self.p) # public key
 
         self.peer_public_keys = {}
         
-        self.zkp = SchnorrZKP(self.p, self.q, self.g)
+        self.zkp = SchnorrZKP(p, q, g) 
+        self.public_key = self.zkp.public  
+
+        self.ca_public_key = ca_public_key  # Public key of the CA for certificate validation
 
         self.monitor = monitor
 
@@ -135,8 +136,6 @@ class Node:
                     return
 
                 peer_public = cert.public_key
-                if peer_public is None:
-                    peer_public = self.extract_public_from_message(parts)
 
                 if peer_public is None:
                     print(f"[Node {self.port}] No public key found for peer {addr}")
@@ -181,12 +180,13 @@ class Node:
                 s.send(str(s_value).encode())
 
                 result = s.recv(4096).decode()
+                print(f"[Node {self.port}] Authentication result: {result}")
                 if result == "OK":
                     s.send(message.encode())
                     print(f"[Node {self.port}] Authenticated and sent message")
                     self.monitor.log_result(self.port, True, time.time() - start)
                 else:
-                    print(f"[Node {self.port}] Authentication failed")
+                    print(f"[Node {self.port}] Authentication failed failuuure")
                     self.monitor.log_result(self.port, False, time.time() - start)
         except Exception as e:
             print(f"[Node {self.port}] Connection failed: {e}")
