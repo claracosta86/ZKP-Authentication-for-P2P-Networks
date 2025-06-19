@@ -4,3 +4,4 @@ pip~=24.0
 cffi~=1.17.1
 mpmath~=1.3.0
 pycparser~=2.22
+aioconsole

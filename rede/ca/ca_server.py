@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 from aioconsole import ainput
 
-from rede.ca.ca import CertificateAuthority
+from ca.ca import CertificateAuthority
 
 
 @dataclass
@@ -41,7 +41,7 @@ class CAServer:
 
             # Wait for either task to complete
             try:
-                done, pending = await asyncio.wait(
+                _, pending = await asyncio.wait(
                     [server_task, input_task],
                     return_when=asyncio.FIRST_COMPLETED
                 )

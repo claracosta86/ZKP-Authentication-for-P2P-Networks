@@ -3,14 +3,15 @@ import pickle
 import secrets
 import socket
 import random
+import time
 
-from rede.ca.ca_server import CARequest
-from rede.models.ca_models import RegisterCertificateRequest, Certificate
-from rede.utils import validate
+from ca.ca_server import CARequest, CertificateAuthority
+from models.ca_models import RegisterCertificateRequest, Certificate
+from utils import validate
 from zkp import SchnorrZKP
 
 class Node:
-    def __init__(self, ip, port, ca_public_key, p, q, g):
+    def __init__(self, ip, port, bootstrap_ip, bootstrap_port, p, q, g, monitor=None, ca_public_key=None):
         """
         Initializes a Node instance.
 
@@ -22,6 +23,7 @@ class Node:
             p (int): A prime number used in the Zero-Knowledge Proof (ZKP) protocol.
             q (int): A prime divisor of (p-1) used in the ZKP protocol.
             g (int): A generator for the cyclic group used in the ZKP protocol.
+            monitor (Monitor, optional): An instance of the Monitor class for tracking metrics. Defaults to None.
 
         Attributes:
             ip (str): Stores the IP address of the node.
@@ -36,17 +38,24 @@ class Node:
         self.id = f"Node{port}"
         self.ip = ip
         self.port = port
+        self.bootstrap_ip = bootstrap_ip
+        self.bootstrap_port = bootstrap_port
         self.certificate = None
         self.peers = []
-        self.ca_public_key = ca_public_key
 
         self.p = p
         self.q = q
         self.g = g
         self.private_key = self.init_private_key() # private key
-        self.public_key = pow(self.g, self.private_key, self.p) # public key
 
         self.peer_public_keys = {}
+        
+        self.zkp = SchnorrZKP(p, q, g) 
+        self.public_key = self.zkp.public  
+
+        self.ca_public_key = ca_public_key  # Public key of the CA for certificate validation
+
+        self.monitor = monitor
 
     def set_certificate(self, certificate: Certificate):
         self.certificate = certificate
@@ -116,14 +125,17 @@ class Node:
 
             if parts[0] == 'AUTH':
                 R = int(parts[1])
-                challenge = random.randint(1, 2**128)
-                conn.send(str(challenge).encode())
+                sender_port = parts[2]
+                cert = pickle.loads(bytes.fromhex(parts[3]))
 
-                s_recv = int(conn.recv(4096).decode())
+                # Verificação da assinatura do certificado
+                if not self.validate_certificate(cert):  # você precisará dessa função no CA
+                    print(f"[Node {self.port}] Certificado inválido de {sender_port}")
+                    conn.send("FAIL".encode())
+                    conn.close()
+                    return
 
-                peer_public = self.peer_public_keys.get((addr[0], str(addr[1])), None)
-                if peer_public is None:
-                    peer_public = self.extract_public_from_message(parts)
+                peer_public = cert.public_key
 
                 if peer_public is None:
                     print(f"[Node {self.port}] No public key found for peer {addr}")
@@ -131,6 +143,10 @@ class Node:
                     conn.close()
                     continue
                 
+                challenge = random.randint(1, 2**128)
+                conn.send(str(challenge).encode())
+                
+                s_recv = int(conn.recv(4096).decode())
                 verified = self.zkp.verify(R, peer_public, challenge, s_recv)
                 if verified:
                     conn.send("OK".encode())
@@ -150,20 +166,27 @@ class Node:
 
     def send_authenticated_message(self, peer_ip, peer_port, message):
         try:
+            start = time.time()
+            self.monitor.log_sent(self.port)
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.connect((peer_ip, int(peer_port)))
                 R = self.zkp.create_commitment()
-                s.send(f"AUTH|{R}|{self.port}".encode())
+
+                cert_hex = pickle.dumps(self.certificate).hex()
+                s.send(f"AUTH|{R}|{self.port}|{cert_hex}".encode())
 
                 challenge = int(s.recv(4096).decode())
                 s_value = self.zkp.compute_response(challenge)
                 s.send(str(s_value).encode())
 
                 result = s.recv(4096).decode()
+                print(f"[Node {self.port}] Authentication result: {result}")
                 if result == "OK":
                     s.send(message.encode())
                     print(f"[Node {self.port}] Authenticated and sent message")
+                    self.monitor.log_result(self.port, True, time.time() - start)
                 else:
                     print(f"[Node {self.port}] Authentication failed")
+                    self.monitor.log_result(self.port, False, time.time() - start)
         except Exception as e:
             print(f"[Node {self.port}] Connection failed: {e}")

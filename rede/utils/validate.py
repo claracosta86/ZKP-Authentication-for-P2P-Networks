@@ -1,6 +1,6 @@
 import hashlib
 
-from rede.models.ca_models import Certificate
+from models.ca_models import Certificate
 
 def validate_certificate(certificate: Certificate, p: int, q: int, g: int, ca_public_key: int) -> bool:
     """
