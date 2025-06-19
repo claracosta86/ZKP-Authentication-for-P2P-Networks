@@ -1,8 +1,8 @@
-from rede import config
-from rede.ca.ca import CertificateAuthority
-from rede.models.ca_models import Certificate
-from rede.node import Node
-from rede.zkp import get_encrypting_values
+import config
+from ca.ca import CertificateAuthority
+from models.ca_models import Certificate
+from node import Node
+from zkp import get_encrypting_values
 
 
 def main():

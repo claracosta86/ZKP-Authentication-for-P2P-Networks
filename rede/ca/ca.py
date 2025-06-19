@@ -1,7 +1,7 @@
 import hashlib
 import secrets
 
-from rede.models.ca_models import RegisterCertificateRequest, Certificate
+from models.ca_models import RegisterCertificateRequest, Certificate
 
 
 class CertificateAuthority:
