@@ -173,8 +173,8 @@ class Node:
                 s.connect((peer_ip, int(peer_port)))
                 R = self.zkp.create_commitment()
 
-                # cert_hex = pickle.dumps(self.certificate).hex()
-                s.send(f"AUTH|{R}|{self.port}".encode())
+                cert_hex = pickle.dumps(self.certificate).hex()
+                s.send(f"AUTH|{R}|{self.port}|{cert_hex}".encode())
 
                 challenge = int(s.recv(4096).decode())
                 s_value = self.zkp.compute_response(challenge)
