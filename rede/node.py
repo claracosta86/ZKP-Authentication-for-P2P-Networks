@@ -186,7 +186,7 @@ class Node:
                     print(f"[Node {self.port}] Authenticated and sent message")
                     self.monitor.log_result(self.port, True, time.time() - start)
                 else:
-                    print(f"[Node {self.port}] Authentication failed failuuure")
+                    print(f"[Node {self.port}] Authentication failed")
                     self.monitor.log_result(self.port, False, time.time() - start)
         except Exception as e:
             print(f"[Node {self.port}] Connection failed: {e}")
