@@ -41,6 +41,14 @@ def main():
             node.send_authenticated_message(peer_ip, peer_port, f"Secure hello from {node.port}")
             time.sleep(0.5)
 
+    # Simulate replay and spoof attacks
+    print("\n[ATAQUE] Iniciando simulação de ataques...\n")
+    for node in nodes:
+        for peer_ip, peer_port in node.peers:
+            node.send_attack(peer_ip, peer_port, attack_type="replay")
+            node.send_attack(peer_ip, peer_port, attack_type="spoof")
+            time.sleep(0.5)
+
     time.sleep(5)
     monitor.report()
 

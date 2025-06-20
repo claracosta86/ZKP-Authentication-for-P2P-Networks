@@ -24,6 +24,7 @@ class Node:
             q (int): A prime divisor of (p-1) used in the ZKP protocol.
             g (int): A generator for the cyclic group used in the ZKP protocol.
             monitor (Monitor, optional): An instance of the Monitor class for tracking metrics. Defaults to None.
+            ca_public_key (int, optional): The public key of the Certificate Authority (CA) for certificate validation. Defaults to None.
 
         Attributes:
             ip (str): Stores the IP address of the node.
@@ -190,3 +191,58 @@ class Node:
                     self.monitor.log_result(self.port, False, time.time() - start)
         except Exception as e:
             print(f"[Node {self.port}] Connection failed: {e}")
+
+
+    def send_attack(self, peer_ip, peer_port, attack_type: str):
+        try:
+            start = time.time()
+            self.monitor.log_sent(self.port, is_attack=True)
+
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.connect((peer_ip, int(peer_port)))
+
+                if attack_type == "replay":
+                    # Executa ZKP uma vez para obter valores válidos
+                    R = self.zkp.create_commitment()
+                    challenge = random.randint(1, 2**128)
+                    s_value = self.zkp.compute_response(challenge)
+
+                    # Reutiliza R e s com novo challenge (o que invalida a segurança)
+                    cert_hex = pickle.dumps(self.certificate).hex()
+                    s.send(f"AUTH|{R}|{self.port}|{cert_hex}".encode())
+
+                    actual_challenge = int(s.recv(4096).decode())
+                    s.send(str(s_value).encode())  # usa s antigo, não s com base no novo challenge
+
+                elif attack_type == "spoof":
+                    # Usa certificado verdadeiro, mas com chave falsa
+                    R = self.zkp.create_commitment()
+
+                    # Falsifica chave pública (ex: +1 na real)
+                    spoof_cert = Certificate(
+                        public_key = self.certificate.public_key + 1,
+                        r = self.certificate.r,
+                        s = self.certificate.s
+                    )
+                    cert_hex = pickle.dumps(spoof_cert).hex()
+                    s.send(f"AUTH|{R}|{self.port}|{cert_hex}".encode())
+
+                    challenge = int(s.recv(4096).decode())
+                    s_value = self.zkp.compute_response(challenge)
+                    s.send(str(s_value).encode())
+
+                else:
+                    print(f"[Node {self.port}] Tipo de ataque desconhecido: {attack_type}")
+                    return
+
+                result = s.recv(4096).decode()
+                if result == "OK":
+                    self.monitor.log_result(self.port, True, time.time() - start, is_attack=True)
+                    print(f"[Node {self.port}] Ataque {attack_type} foi aceito (inseguro!)")
+                else:
+                    self.monitor.log_result(self.port, False, time.time() - start, is_attack=True)
+                    print(f"[Node {self.port}] Ataque {attack_type} corretamente rejeitado")
+
+        except Exception as e:
+            print(f"[Node {self.port}] Falha no ataque {attack_type} para {peer_port}: {e}")
+
