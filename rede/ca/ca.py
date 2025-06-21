@@ -1,7 +1,7 @@
 import hashlib
 import secrets
 
-from models.ca_models import RegisterCertificateRequest, Certificate
+from rede.models.ca_models import RegisterCertificateRequest, Certificate
 
 
 class CertificateAuthority:
@@ -9,7 +9,7 @@ class CertificateAuthority:
         self.p = p
         self.q = q
         self.g = g
-        self.ca_private_key = secrets.randbelow(q)
+        self.ca_private_key = 123456789
         self.ca_public_key = pow(self.g, self.ca_private_key, self.p)
 
     def sign_public_key(self, request: RegisterCertificateRequest) -> Certificate:

@@ -5,10 +5,10 @@ import socket
 import random
 import time
 
-from ca.ca_server import CARequest, CertificateAuthority
-from models.ca_models import RegisterCertificateRequest, Certificate
-from utils import validate
-from zkp import SchnorrZKP
+from rede.models.authentication import AuthenticationRequest
+from rede.models.ca_models import RegisterCertificateRequest, Certificate
+from rede.utils import validate
+from rede.zkp import SchnorrZKP
 
 class Node:
     def __init__(self, ip, port, bootstrap_ip, bootstrap_port, p, q, g, monitor=None, ca_public_key=None):
@@ -48,14 +48,13 @@ class Node:
         self.q = q
         self.g = g
         self.private_key = self.init_private_key() # private key
+        self.public_key = pow(self.g, self.private_key, self.p)
 
         self.peer_public_keys = {}
         
-        self.zkp = SchnorrZKP(p, q, g) 
-        self.public_key = self.zkp.public  
+        self.zkp = SchnorrZKP(p, q, g, self.private_key)
 
         self.ca_public_key = ca_public_key  # Public key of the CA for certificate validation
-
         self.monitor = monitor
 
     def set_certificate(self, certificate: Certificate):
@@ -74,28 +73,17 @@ class Node:
     def get_registration_request(self):
         return RegisterCertificateRequest(self.id, self.public_key)
 
+    def get_authentication_request(self):
+        """De momento, utilizando apenas o certificado do node"""
+        # TODO: implementar a logica ZKP utilizando os certificados retornados do bootstrap server
+        return AuthenticationRequest(self.certificate.public_key, self.certificate.r, self.certificate.s)
+
     def validate_certificate(self, certificate: Certificate) -> bool:
         return validate.validate_certificate(certificate, self.p, self.q, self.g, self.ca_public_key)
 
-    def request_certificate(self, CA_HOST=None, CA_PORT=None) -> bool:
-        """Request certificate from CA server"""
-        try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.connect((CA_HOST, CA_PORT))
-
-                request = CARequest(
-                    type="REGISTER",
-                    data=RegisterCertificateRequest(self.id, self.public_key)
-                )
-
-                s.send(pickle.dumps(request))
-                response = s.recv(4096)
-                self.certificate = pickle.loads(response)
-                return True
-
-        except Exception as e:
-            print(f"[Node {self.port}] Failed to get certificate: {e}")
-            return False
+    def _get_node_status(self):
+        """Returns the status of the node including its IP, port, and public key."""
+        return f"{self.ip}:{self.port}: {self.zkp.public}"
 
     def register_with_bootstrap(self, bootstrap_ip, bootstrap_port):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -246,3 +234,24 @@ class Node:
         except Exception as e:
             print(f"[Node {self.port}] Falha no ataque {attack_type} para {peer_port}: {e}")
 
+
+    # def request_certificate(self, CA_HOST=None, CA_PORT=None) -> bool:
+    #     """Request certificate from CA server"""
+    #     try:
+    #         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+    #             s.connect((CA_HOST, CA_PORT))
+    #
+    #             request = CARequest(
+    #                 type="REGISTER",
+    #                 data=RegisterCertificateRequest(self.id, self.public_key)
+    #             )
+    #
+    #             s.send(pickle.dumps(request))
+    #             response = s.recv(4096)
+    #             self.certificate = pickle.loads(response)
+    #             return True
+    #
+    #     except Exception as e:
+    #         print(f"[Node {self.port}] Failed to get certificate: {e}")
+    #         return False
+    #
