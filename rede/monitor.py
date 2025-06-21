@@ -1,5 +1,4 @@
 from collections import defaultdict
-import time
 
 class Monitor:
     def __init__(self):

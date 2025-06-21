@@ -4,8 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 from aioconsole import ainput
 
-from ca.ca import CertificateAuthority
-
+from rede.ca.ca import CertificateAuthority
 
 @dataclass
 class CARequest:

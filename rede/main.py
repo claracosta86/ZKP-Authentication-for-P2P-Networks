@@ -1,7 +1,7 @@
 import threading
 import time
 from network import BootstrapServer
-from node import Node
+from rede.node.node import Node
 import config as config
 from ca.ca import CertificateAuthority
 from zkp import get_encrypting_values

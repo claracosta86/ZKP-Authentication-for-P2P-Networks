@@ -1,8 +1,10 @@
-import config
-from ca.ca import CertificateAuthority
-from models.ca_models import Certificate
-from node import Node
-from zkp import get_encrypting_values
+import rede.config
+from rede import config
+from rede.ca.ca import CertificateAuthority
+from rede.models.ca_models import Certificate
+from rede.monitor import Monitor
+from rede.node.node import Node
+from rede.zkp import get_encrypting_values
 
 
 def main():
@@ -12,7 +14,7 @@ def main():
     port = 6000
     ca = CertificateAuthority(p, q, g)
 
-    user = Node('127.0.0.1', port, config.BOOTSTRAP_NODE, config.BOOTSTRAP_PORT, ca.get_ca_public_key(), p, q, g)
+    user = Node('127.0.0.1', port, config.BOOTSTRAP_NODE, config.BOOTSTRAP_PORT, p, q, g, Monitor(), ca.get_ca_public_key())
     request = user.get_registration_request()
 
     # Server side
