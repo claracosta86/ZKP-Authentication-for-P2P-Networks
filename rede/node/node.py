@@ -11,7 +11,7 @@ from rede.utils import validate
 from rede.zkp import SchnorrZKP
 
 class Node:
-    def __init__(self, ip, port, bootstrap_host, bootstrap_port, p, q, g, monitor=None, ca_public_key=None):
+    def __init__(self, ip, port, bootstrap_host, bootstrap_port, ca_host, ca_port, p, q, g, monitor=None, ca_public_key=None):
         """
         Initializes a Node instance.
 
@@ -41,6 +41,8 @@ class Node:
         self.port = port
         self.bootstrap_host = bootstrap_host
         self.bootstrap_port = bootstrap_port
+        self.ca_host = ca_host
+        self.ca_port = ca_port
         self.certificate = None
         self.certificates = set()
         self.peers = []
@@ -81,8 +83,10 @@ class Node:
         """
         Creates the commitment for the Schnorr Zero-Knowledge Proof (ZKP) and returns an AuthenticationRequest.
         """
-        self.zkp.create_commitment()  # self.zkp.r e self.zkp.R
-        return AuthenticationRequest(self.public_key, self.zkp.R)
+        R = self.zkp.create_commitment()   
+        return AuthenticationRequest(self.public_key, R, None)
+                # return AuthenticationRequest(self.certificate.public_key, self.certificate.commitment, self.certificate.signature)
+
 
     def validate_certificate(self, certificate: Certificate) -> bool:
         return validate.validate_certificate(certificate, self.p, self.q, self.g, self.ca_public_key)

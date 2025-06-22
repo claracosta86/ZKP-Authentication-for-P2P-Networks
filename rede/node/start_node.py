@@ -15,6 +15,8 @@ async def main():
     parser.add_argument('--port', type=int, required=True, help='Node port')
     parser.add_argument('--ca-host', default='127.0.0.1', help='CA host address')
     parser.add_argument('--ca-port', type=int, default=5001, help='CA port')
+    parser.add_argument('--bootstrap-host', default='127.0.0.1', help='Bootstrap host address')
+    parser.add_argument('--bootstrap-port', type=int, default=5000, help='Bootstrap port')
     parser.add_argument('--peers', default='', help='Peer list (ip:port:pubkey;...)')
     args = parser.parse_args()
 
@@ -25,6 +27,8 @@ async def main():
     node = Node(
         args.host,
         args.port,
+        args.bootstrap_host,
+        args.bootstrap_port,
         args.ca_host,
         args.ca_port,
         p, q, g,
@@ -36,10 +40,10 @@ async def main():
 
     await asyncio.sleep(1)  # wait for the node to initialize
     try:
-        if not node.request_certificate(args.ca_host, args.ca_port):
-            print(f"[Node {args.port}] Failure requesting certificate from CA")
-            return
-        print(f"[Node {args.port}] Certificate obtained from CA")
+        # if not node.request_certificate(args.ca_host, args.ca_port):
+        #     print(f"[Node {args.port}] Failure requesting certificate from CA")
+        #     return
+        # print(f"[Node {args.port}] Certificate obtained from CA")
 
         # Start node server
         await node_peer.start_async()

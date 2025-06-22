@@ -25,5 +25,6 @@ def validate_certificate(certificate: Certificate, p: int, q: int, g: int, ca_pu
 
     left = pow(g, certificate.signature, p)
     right = (certificate.commitment * pow(ca_public_key, e, p)) % p
+    print(f"Left: {left}, Right: {right}, e: {e}")
 
     return left == right
