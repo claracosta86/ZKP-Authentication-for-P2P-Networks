@@ -1,3 +1,6 @@
+from dataclasses import dataclass
+from typing import Any
+
 class RegisterCertificateRequest:
     def __init__(self, id: str, public_key: int):
         self.id = id
@@ -25,3 +28,8 @@ class Certificate:
         r = int.from_bytes(data[256:512], 'big')
         s = int.from_bytes(data[512:], 'big')
         return cls(public_key, r, s)
+    
+@dataclass
+class CARequest:
+    type: str       
+    data: Any       
