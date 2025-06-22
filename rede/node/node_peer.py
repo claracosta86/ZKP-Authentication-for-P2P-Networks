@@ -68,7 +68,8 @@ class NodePeer:
                     break
                 elif cmd == "status":
                     print(f"[Node {self.port}] Running on {self.host}:{self.port}")
-                    print(f"[Node {self.port}] Certificate: {self.node.certificate}")
+                    if self.node.zkp:
+                        print(f"[Node {self.port}] ZKP Public Key: {self.node.zkp.public}")
 
                 elif cmd == "authenticate":
                     if len(parts) != 2:
