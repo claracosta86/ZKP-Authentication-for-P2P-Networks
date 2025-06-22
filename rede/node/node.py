@@ -11,14 +11,14 @@ from rede.utils import validate
 from rede.zkp import SchnorrZKP
 
 class Node:
-    def __init__(self, ip, port, bootstrap_ip, bootstrap_port, p, q, g, monitor=None, ca_public_key=None):
+    def __init__(self, ip, port, bootstrap_host, bootstrap_port, p, q, g, monitor=None, ca_public_key=None):
         """
         Initializes a Node instance.
 
         Args:
             ip (str): The IP address of the node.
             port (int): The port number of the node.
-            bootstrap_ip (str): The IP address of the bootstrap node.
+            bootstrap_host (str): The IP address of the bootstrap node.
             bootstrap_port (int): The port number of the bootstrap node.
             p (int): A prime number used in the Zero-Knowledge Proof (ZKP) protocol.
             q (int): A prime divisor of (p-1) used in the ZKP protocol.
@@ -30,7 +30,7 @@ class Node:
             ip (str): Stores the IP address of the node.
             port (int): Stores the port number of the node.
             certificate (str): Stores the certificate of the node.
-            bootstrap_ip (str): Stores the IP address of the bootstrap node.
+            bootstrap_host (str): Stores the IP address of the bootstrap node.
             bootstrap_port (int): Stores the port number of the bootstrap node.
             peers (list): A list of tuples containing the IP and port of connected peers.
             zkp (SchnorrZKP): An instance of the Schnorr Zero-Knowledge Proof protocol.
@@ -39,9 +39,10 @@ class Node:
         self.id = f"Node{port}"
         self.ip = ip
         self.port = port
-        self.bootstrap_ip = bootstrap_ip
+        self.bootstrap_host = bootstrap_host
         self.bootstrap_port = bootstrap_port
         self.certificate = None
+        self.certificates = set()
         self.peers = []
 
         self.p = p
@@ -60,6 +61,9 @@ class Node:
     def set_certificate(self, certificate: Certificate):
         self.certificate = certificate
 
+    def set_certificates(self, certificates: set[Certificate]):
+        self.certificates = certificates
+
     def init_private_key(self):
         # Generate a random number ru
         ru = secrets.randbelow(self.q)
@@ -76,7 +80,7 @@ class Node:
     def get_authentication_request(self):
         """De momento, utilizando apenas o certificado do node"""
         # TODO: implementar a logica ZKP utilizando os certificados retornados do bootstrap server
-        return AuthenticationRequest(self.certificate.public_key, self.certificate.r, self.certificate.s)
+        return AuthenticationRequest(self.certificate.public_key, self.certificate.commitment, self.certificate.signature)
 
     def validate_certificate(self, certificate: Certificate) -> bool:
         return validate.validate_certificate(certificate, self.p, self.q, self.g, self.ca_public_key)
@@ -207,11 +211,9 @@ class Node:
                     R = self.zkp.create_commitment()
 
                     # Falsifica chave pública (ex: +1 na real)
-                    spoof_cert = Certificate(
-                        public_key = self.certificate.public_key + 1,
-                        r = self.certificate.r,
-                        s = self.certificate.s
-                    )
+                    spoof_cert = Certificate(public_key=self.certificate.public_key + 1,
+                                             commitment=self.certificate.commitment,
+                                             signature=self.certificate.signature)
                     cert_hex = pickle.dumps(spoof_cert).hex()
                     s.send(f"AUTH|{R}|{self.port}|{cert_hex}".encode())
 

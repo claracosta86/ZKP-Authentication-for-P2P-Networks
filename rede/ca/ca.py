@@ -17,13 +17,13 @@ class CertificateAuthority:
         Signs a user's public key to create a certificate using Schnorr signature scheme.
         """
         k = secrets.randbelow(self.q)  # random nonce
-        r = pow(self.g, k, self.p)  # r = g^k mod p
+        r = pow(self.g, k, self.p)  # commitment = g^k mod p
 
         # Convert integers to fixed-width bytes
         pub_key_bytes = request.public_key.to_bytes(256, 'big')
         r_bytes = r.to_bytes(256, 'big')
 
-        # e = H(public_key || r) mod q
+        # e = H(public_key || commitment) mod q
         e = int.from_bytes(hashlib.sha256(pub_key_bytes + r_bytes).digest(), 'big') % self.q
 
         # s = (k + e * Ks) mod q

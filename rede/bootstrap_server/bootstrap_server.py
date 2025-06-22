@@ -1,77 +1,132 @@
-import socket
-import threading
-
+import asyncio
+import pickle
+import random
+from typing import Set
 from rede.models.ca_models import Certificate
 from rede.utils import validate
 
 
-class BootStrapServer:
-    def __init__(self, ip, port, ca_public_key, p, q, g):
-        self.ip = ip
+class BootstrapServer:
+    def __init__(self, host: str, port: int, ca_public_key: int, p: int, q: int, g: int):
+        self.host = host
         self.port = port
-        self.certificates = set()
-        self.connected_nodes = {}  # {node_id: (ip, port)}
+        self.certificates: Set[Certificate] = set()
+        self.connected_nodes: Set[int] = set()# {node_id: (ip, port)}
         self.ca_public_key = ca_public_key
         self.p = p
         self.q = q
         self.g = g
-
-    def start(self):
-        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        server.bind((self.ip, self.port))
-        server.listen()
-        print(f"[BootStrapServer] Listening on {self.ip}:{self.port}")
-
-        while True:
-            conn, addr = server.accept()
-            threading.Thread(target=self.handle_peer, args=(conn, addr)).start()
+        self.server = None
+        self.running = False
 
     def validate_certificate(self, certificate: Certificate) -> bool:
-        return validate.validate_certificate(certificate, self.p, self.q, self.g, self.ca_public_key)
-
-    def handle_peer(self, conn, addr):
-        try:
-            request_type = conn.recv(4096).decode()
-
-            if request_type == "AUTHENTICATE":
-                self._handle_authentication(conn, addr)
-            elif request_type.startswith("REQUEST_CERTIFICATES"):
-                self._handle_certificate_request(conn, addr, request_type)
-            else:
-                conn.send(b"INVALID_REQUEST")
-        except Exception as e:
-            print(f"[BootStrapServer] Error handling peer: {e}")
-        finally:
-            conn.close()
-
-    def _handle_authentication(self, conn, addr):
-        data = conn.recv(4096)
-        certificate = Certificate.from_bytes(data)
-
-        if self.validate_certificate(certificate):
-            conn.send(b"ACCEPTED")
-            self.certificates.add(certificate)
-            self.connected_nodes[certificate.public_key] = addr
-            print(f"[BootStrapServer] New peer authenticated: {addr}")
-        else:
-            conn.send(b"REJECTED")
-
-    def _handle_certificate_request(self, conn, addr, request_type):
-        try:
-            k = int(request_type.split(":")[1])
-        except (IndexError, ValueError):
-            conn.send(b"INVALID_REQUEST")
-            return
-
-        peer_public_key = next(
-            (key for key, value in self.connected_nodes.items() if value == addr), None
+        return validate.validate_certificate(
+            certificate, self.p, self.q, self.g, self.ca_public_key
         )
-        if peer_public_key:
-            certificates_to_send = list(self.certificates)[:k]
-            for cert in certificates_to_send:
-                conn.send(cert.to_bytes())
-            print(f"[BootStrapServer] Sent {len(certificates_to_send)} certificates to {addr}")
-        else:
-            conn.send(b"UNAUTHENTICATED")
-            print(f"[BootStrapServer] Peer {addr} is not authenticated")
+
+    async def start_async(self):
+        """Start the bootstrap server"""
+
+        self.server = await asyncio.start_server(
+            self._handle_client,
+            self.host,
+            self.port,
+            reuse_address=True
+        )
+        self.running = True
+
+        print(f"[Bootstrap] Server started on {self.host}:{self.port}")
+        print(f"[Bootstrap] CA Public Key: {self.ca_public_key}")
+        print(f"[Bootstrap] Parameters: p={self.p}, q={self.q}, g={self.g}")
+
+        async with self.server:
+            await self.server.serve_forever()
+
+    async def _handle_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+        """Handle incoming client connections"""
+        address = writer.get_extra_info('peername')
+        try:
+            data = await reader.read(4096)
+            if not data:
+                return
+
+            data_parts = data.decode().split("|")
+            request_type = data_parts[0]
+
+            print(f"Received request: {request_type}")
+
+            if request_type == "AUTH":
+                if len(data_parts) != 3:
+                    raise ValueError("Invalid authentication format")
+
+                print(f"[Node {self.port}] Authentication request received from", address)
+                client_port = data_parts[1]
+                authenticate_request = pickle.loads(bytes.fromhex(data_parts[2]))
+
+                R = authenticate_request.commitment
+                signature = authenticate_request.signature
+                public_key = authenticate_request.public_key
+
+                certificate = Certificate(public_key=public_key, commitment=R, signature=signature)
+                is_valid = self.validate_certificate(certificate)
+                print(f"[Node {self.port}] Certificate valid: {is_valid}")
+                if is_valid:
+                    print(f"[Bootstrap] Validated for {client_port}")
+
+                    writer.write("OK".encode())
+                    await writer.drain()
+
+                    self.certificates.add(certificate)
+                    self.connected_nodes.add(int(client_port))
+                    print(f"[Bootstrap] New peer authenticated: {client_port}")
+                    print(f"[Bootstrap] Authenticated succeeded for port {client_port}")
+
+                else:
+                    writer.write("FAILED".encode())
+                    await writer.drain()
+                    print(f"[Bootstrap] Authentication failed for {client_port}")
+
+
+            elif request_type == "REQUEST_CERTIFICATES":
+                await self._handle_certificate_request(reader, writer, int(data_parts[1]), int(data_parts[2]))
+            else:
+                writer.write(b"INVALID_REQUEST")
+                await writer.drain()
+
+        except Exception as e:
+            print(f"[Bootstrap] Error handling client {address}: {e}")
+        finally:
+            writer.close()
+            await writer.wait_closed()
+
+    async def _handle_certificate_request(self, reader: asyncio.StreamReader,
+                                          writer: asyncio.StreamWriter,
+                                          port: int, k: int):
+        """Handle certificate list requests"""
+        try:
+            print(f"[Bootstrap] Certificate request from port {port} for {k} certificates")
+
+            if port in self.connected_nodes:
+                certificates_to_send = random.sample(list(self.certificates), min(k, len(self.certificates)))
+
+                buffer = pickle.dumps(certificates_to_send)
+                writer.write(buffer)
+                await writer.drain()
+                print(f"[Bootstrap] Sent {len(certificates_to_send)} certificates to {port}")
+            else:
+                writer.write(b"UNAUTHENTICATED")
+                await writer.drain()
+                print(f"[Bootstrap] Peer {port} is not authenticated")
+
+        except (IndexError, ValueError) as e:
+            print(f"[Bootstrap] Invalid certificate request from {port}: {e}")
+            writer.write(b"INVALID_REQUEST")
+            await writer.drain()
+
+    async def stop_async(self):
+        """Stop the bootstrap server"""
+        self.running = False
+        if self.server:
+            self.server.close()
+            await self.server.wait_closed()
+            print("[Bootstrap] Server stopped")
