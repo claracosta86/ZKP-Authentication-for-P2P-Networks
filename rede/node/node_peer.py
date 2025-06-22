@@ -111,33 +111,49 @@ class NodePeer:
                 signature = authenticate_request.signature
                 public_key = authenticate_request.public_key
 
-                #TODO: implementar o protocolo de Schnorr
-                # De momento, estamos apenas verificando o certificado
+                # Send challenge
+                challenge = random.randint(1, 2**128)
+                writer.write(str(challenge).encode())
+                await writer.drain()
 
-                # # Send challenge
-                # challenge = random.randint(1, 2**128)
-                # writer.write(str(challenge).encode())
+                # s = self.zkp.compute_response(challenge)
+                # print(f"[Node {self.port}] Sending response to {address}: {s}")
+                # # Send response
+                # writer.write(str(s).encode())
                 # await writer.drain()
+                # print(f"[Node {self.port}] Response sent to {address}")
+                
+                # # Wait for response
+                # print(f"[Node {self.port}] Waiting for response from {address}...")
 
                 # Get response
-                # s_value = int((await reader.read(4096)).decode())
+                s_data = await reader.read(4096)
+                s_value = int(s_data.decode())
 
-                #Verify
-                # if self.node.zkp.verify_proof(certificate.public_key, R, challenge, s_value):
-                print(f"CA public key: {self.node.ca_public_key}")
-                is_valid = self.node.validate_certificate(Certificate(public_key, R, signature))
-                print(f"[Node {self.port}] Certificate valid: {is_valid}")
-                if is_valid:
-                    print(f"[Node {self.port}] Validated for {address}")
+                # Verify
+                if self.node.zkp.verify_proof(public_key, R, challenge, s_value):
+                    print(f"CA public key: {self.node.ca_public_key}")
+                    is_valid = self.node.validate_certificate(Certificate(public_key, R, signature))
+                    print(f"[Node {self.port}] Certificate valid: {is_valid}")
+                    if is_valid:
+                        print(f"[Node {self.port}] Validated for {address}")
 
+                        writer.write("OK".encode())
+                        await writer.drain()
+                        print(f"[Node {self.port}] Authenticated succeeded for port {address}")
+
+                    else:
+                        writer.write("FAILED".encode())
+                        await writer.drain()
+                        print(f"[Node {self.port}] Authentication failed for {address}")
+                   
                     writer.write("OK".encode())
                     await writer.drain()
-                    print(f"[Node {self.port}] Authenticated succeeded for port {address}")
-
+                    print(f"[Node {self.port}] ZKP Authentication succeeded for port {address}")
                 else:
                     writer.write("FAILED".encode())
                     await writer.drain()
-                    print(f"[Node {self.port}] Authentication failed for {address}")
+                    print(f"[Node {self.port}] ZKP Authentication failed for {address}")
 
         except Exception as e:
             print(f"[Node {self.port}] Error handling client {address}: {e}")

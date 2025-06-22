@@ -1,11 +1,15 @@
 import threading
 import time
+import os
+import sys
 from network import BootstrapServer
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from rede.node.node import Node
-import config as config
-from ca.ca import CertificateAuthority
-from zkp import get_encrypting_values
-from monitor import Monitor
+import rede.config as config
+from rede.ca.ca import CertificateAuthority
+from rede.zkp import get_encrypting_values
+from rede.monitor import Monitor
 
 def main():
     # Gera p, q, g uma única vez para todos os nós
