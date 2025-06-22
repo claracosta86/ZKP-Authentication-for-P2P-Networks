@@ -55,7 +55,7 @@ class NodePeer:
 
         while self.running:
             try:
-                command = await ainput("Enter command: ")
+                command = await ainput("Enter command: \n")
                 if not command:
                     continue
 
@@ -174,7 +174,6 @@ class NodePeer:
         """Authenticate with the bootstrap server and retrieve certificates"""
         try:
             # Send authentication request to the bootstrap server
-
             request = pickle.dumps(self.node.get_authentication_request()).hex()
             message = f"AUTH|{self.port}|{request}"
 
@@ -183,13 +182,22 @@ class NodePeer:
             await writer.drain()
 
             # Wait for response
-            response = await reader.read(4096)
-            response_message = response.decode()
+            challenge_data = await reader.read(1024)
+            challenge = int(challenge_data.decode())
 
+            s = self.node.zkp.compute_response(challenge)
+            writer.write(str(s).encode())
+            await writer.drain()
+
+            response = await reader.read(1024)
+            response_message = response.decode()
             if response_message == "OK":
                 print(f"[Node {self.port}] Successfully authenticated with bootstrap server")
             elif response_message == "FAILED":
                 print(f"[Node {self.port}] Authentication failed with bootstrap server")
+                return
+            else:
+                print(f"[Node {self.port}] Unexpected response from bootstrap server: {response_message}")
                 return
 
             # Request certificates

@@ -4,6 +4,7 @@ import random
 from typing import Set
 from rede.models.ca_models import Certificate
 from rede.utils import validate
+from rede.zkp import SchnorrZKP
 
 
 class BootstrapServer:
@@ -71,19 +72,24 @@ class BootstrapServer:
                 authenticate_request = pickle.loads(bytes.fromhex(data_parts[2]))
 
                 R = authenticate_request.commitment
-                signature = authenticate_request.signature
                 public_key = authenticate_request.public_key
 
-                certificate = Certificate(public_key=public_key, commitment=R, signature=signature)
-                is_valid = self.validate_certificate(certificate)
-                print(f"[Node {self.port}] Certificate valid: {is_valid}")
+                challenge = random.randint(1, 2**128)
+                writer.write(str(challenge).encode())
+                await writer.drain()
+
+                s_data = await reader.read(1024)
+                s = int(s_data.decode())
+
+                zkp = SchnorrZKP(self.p, self.q, self.g, s)  
+                is_valid = zkp.verify(R, public_key, challenge, s)
+                print(f"[Node {self.port}] ZKP valid: {is_valid}")
                 if is_valid:
                     print(f"[Bootstrap] Validated for {client_port}")
 
                     writer.write("OK".encode())
                     await writer.drain()
 
-                    self.certificates.add(certificate)
                     self.connected_nodes.add(int(client_port))
                     print(f"[Bootstrap] New peer authenticated: {client_port}")
                     print(f"[Bootstrap] Authenticated succeeded for port {client_port}")
