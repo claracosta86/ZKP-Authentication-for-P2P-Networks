@@ -145,6 +145,15 @@ class NodePeer:
                     await writer.drain()
                     print(f"[Node {self.port}] ZKP Authentication failed for {address}")
 
+            else:
+                message = data.decode()
+                print(f"[Node {self.port}] Message received from {address}:\n{message}")
+
+                # Authomatically acknowledge the message
+                response = f"Acknowledged message:\n{message}"
+                writer.write(response.encode())
+                await writer.drain()
+
         except Exception as e:
             print(f"[Node {self.port}] Error handling client {address}: {e}")
         finally:
