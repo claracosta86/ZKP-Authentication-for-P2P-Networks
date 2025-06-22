@@ -1,6 +1,9 @@
 import argparse
 import asyncio
 import sys
+import os
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from rede.zkp import get_encrypting_values
 from rede.ca.ca_server import CAServer
 

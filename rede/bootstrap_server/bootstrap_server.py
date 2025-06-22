@@ -50,8 +50,15 @@ class BootstrapServer:
             if not data:
                 return
 
-            data_parts = data.decode().split("|")
-            request_type = data_parts[0]
+            try:
+                decoded = data.decode()
+                data_parts = decoded.split("|")
+                request_type = data_parts[0]
+            except UnicodeDecodeError:
+                print(f"[Bootstrap] Received non-UTF8 data from {address}, likely pickle")
+                writer.write(b"INVALID_REQUEST")
+                await writer.drain()
+                return
 
             print(f"Received request: {request_type}")
 

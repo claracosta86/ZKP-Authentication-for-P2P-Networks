@@ -82,7 +82,7 @@ class Node:
         Creates the commitment for the Schnorr Zero-Knowledge Proof (ZKP) and returns an AuthenticationRequest.
         """
         self.zkp.create_commitment()  # self.zkp.r e self.zkp.R
-        return AuthenticationRequest(self.public_key, self.zkp.R, self.zkp.s)
+        return AuthenticationRequest(self.public_key, self.zkp.R)
 
     def validate_certificate(self, certificate: Certificate) -> bool:
         return validate.validate_certificate(certificate, self.p, self.q, self.g, self.ca_public_key)
@@ -230,13 +230,13 @@ class Node:
                 result = s.recv(4096).decode()
                 if result == "OK":
                     self.monitor.log_result(self.port, True, time.time() - start, is_attack=True)
-                    print(f"[Node {self.port}] Ataque {attack_type} foi aceito (inseguro!)")
+                    print(f"[Node {self.port}] Attack {attack_type} was acceptesd (unsafe!)")
                 else:
                     self.monitor.log_result(self.port, False, time.time() - start, is_attack=True)
-                    print(f"[Node {self.port}] Ataque {attack_type} corretamente rejeitado")
+                    print(f"[Node {self.port}] Attack {attack_type} writly rejected")
 
         except Exception as e:
-            print(f"[Node {self.port}] Falha no ataque {attack_type} para {peer_port}: {e}")
+            print(f"[Node {self.port}] Attack failure {attack_type} for {peer_port}: {e}")
 
 
     def request_certificate(self, ca_host: str, ca_port: int) -> bool:
@@ -254,7 +254,7 @@ class Node:
                 self.set_certificate(cert)
                 return True
         except Exception as e:
-            print(f"[Node {self.port}] Falha ao requisitar certificado: {e}")
+            print(f"[Node {self.port}] Failure requesting certificate: {e}")
             return False
 
     

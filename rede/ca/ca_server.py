@@ -92,10 +92,15 @@ class CAServer:
                 print(f"[CA] Empty request from {address}")
                 return
 
-            request = pickle.loads(data)
+            try:
+                request = pickle.loads(data)
+            except Exception as e:
+                print(f"[CA] Failed to unpickle data from {address}: {e}")
+                return
 
-            if not isinstance(request, CARequest):
-                raise ValueError("Invalid request format")
+            if not hasattr(request, 'type') or not hasattr(request, 'data'):
+                raise ValueError(f"[CA] Malformed request object: {type(request)}")
+
 
             if request.type == "REGISTER":
                 certificate = self.ca.sign_public_key(request.data)

@@ -115,17 +115,7 @@ class NodePeer:
                 challenge = random.randint(1, 2**128)
                 writer.write(str(challenge).encode())
                 await writer.drain()
-
-                # s = self.zkp.compute_response(challenge)
-                # print(f"[Node {self.port}] Sending response to {address}: {s}")
-                # # Send response
-                # writer.write(str(s).encode())
-                # await writer.drain()
-                # print(f"[Node {self.port}] Response sent to {address}")
                 
-                # # Wait for response
-                # print(f"[Node {self.port}] Waiting for response from {address}...")
-
                 # Get response
                 s_data = await reader.read(4096)
                 s_value = int(s_data.decode())
