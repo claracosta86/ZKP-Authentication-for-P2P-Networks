@@ -18,12 +18,12 @@ def validate_certificate(certificate: Certificate, p: int, q: int, g: int, ca_pu
     """
     # Convert integers to fixed-width bytes
     pub_key_bytes = certificate.public_key.to_bytes(256, byteorder='big')
-    r_bytes = certificate.r.to_bytes(256, byteorder='big')
+    r_bytes = certificate.commitment.to_bytes(256, byteorder='big')
 
     # Concatenate bytes directly
     e = int.from_bytes(hashlib.sha256(pub_key_bytes + r_bytes).digest(), 'big') % q
 
-    left = pow(g, certificate.s, p)
-    right = (certificate.r * pow(ca_public_key, e, p)) % p
+    left = pow(g, certificate.signature, p)
+    right = (certificate.commitment * pow(ca_public_key, e, p)) % p
 
     return left == right

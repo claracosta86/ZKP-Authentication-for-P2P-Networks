@@ -14,6 +14,7 @@ class NodePeer:
         self.port = port
         self.server = None
         self.running = False
+        self.k = 5 # number of certificates to get from bootstrap server
 
     async def start_async(self):
         """Start the node peer server and command handler"""
@@ -30,7 +31,7 @@ class NodePeer:
         async with self.server:
             server_task = asyncio.create_task(self.server.serve_forever())
             input_task = asyncio.create_task(self.handle_input())
-
+            await self.authenticate_to_bootstrap_and_get_certificates()
             try:
                 _, pending = await asyncio.wait(
                     [server_task, input_task],
@@ -159,6 +160,46 @@ class NodePeer:
 
         except Exception as e:
             print(f"[Node {self.port}] Connection failed: {e}")
+        finally:
+            writer.close()
+            await writer.wait_closed()
+
+    async def authenticate_to_bootstrap_and_get_certificates(self):
+        """Authenticate with the bootstrap server and retrieve certificates"""
+        try:
+            # Send authentication request to the bootstrap server
+
+            request = pickle.dumps(self.node.get_authentication_request()).hex()
+            message = f"AUTH|{self.port}|{request}"
+
+            reader, writer = await asyncio.open_connection(self.node.bootstrap_host, self.node.bootstrap_port)
+            writer.write(message.encode())
+            await writer.drain()
+
+            # Wait for response
+            response = await reader.read(4096)
+            response_message = response.decode()
+
+            if response_message == "OK":
+                print(f"[Node {self.port}] Successfully authenticated with bootstrap server")
+            elif response_message == "FAILED":
+                print(f"[Node {self.port}] Authentication failed with bootstrap server")
+                return
+
+            # Request certificates
+            message = f"REQUEST_CERTIFICATES|{self.port}|{self.k}"
+            reader, writer = await asyncio.open_connection(self.node.bootstrap_host, self.node.bootstrap_port)
+
+            writer.write(message.encode())
+            await writer.drain()
+
+            certificates_data = await reader.read(4096)
+            certificates = pickle.loads(certificates_data)
+            self.node.set_certificates(certificates)
+            print(f"[Node {self.port}] Certificates retrieved from bootstrap server")
+
+        except Exception as e:
+            print(f"[Node {self.port}] Error during bootstrap authentication: {e}")
         finally:
             writer.close()
             await writer.wait_closed()

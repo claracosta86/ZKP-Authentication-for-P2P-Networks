@@ -14,7 +14,7 @@ async def main():
     parser.add_argument('--host', default='127.0.0.1', help='Host address')
     parser.add_argument('--port', type=int, required=True, help='Node port')
     parser.add_argument('--bootstrap-host', default='127.0.0.1', help='CA host address')
-    parser.add_argument('--bootstrap-port', type=int, default=5001, help='CA port')
+    parser.add_argument('--bootstrap-port', type=int, default=5000, help='CA port')
     parser.add_argument('--peers', default='', help='Peer list (ip:port:pubkey;...)')
     args = parser.parse_args()
 

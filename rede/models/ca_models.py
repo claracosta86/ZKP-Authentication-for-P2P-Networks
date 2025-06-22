@@ -7,17 +7,17 @@ class RegisterCertificateRequest:
         return f"RegisterCertificateRequest(id={self.id}, public_key={self.public_key})"
 
 class Certificate:
-    def __init__(self, public_key: int, r: int, s: int):
+    def __init__(self, public_key: int, commitment: int, signature: int):
         self.public_key = public_key
-        self.r = r
-        self.s = s
+        self.commitment = commitment
+        self.signature = signature
 
     def __repr__(self):
-        return f"Certificate(public_key={self.public_key}, s={self.s}, r={self.r})"
+        return f"Certificate(public_key={self.public_key}, s={self.signature}, r={self.commitment})"
 
     def to_bytes(self) -> bytes:
         """Serialize certificate for network transmission"""
-        return f"{self.public_key},{self.r},{self.s}".encode()
+        return f"{self.public_key},{self.commitment},{self.signature}".encode()
 
     @classmethod
     def from_bytes(cls, data):
