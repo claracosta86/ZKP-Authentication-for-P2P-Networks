@@ -27,3 +27,20 @@ def validate_certificate(certificate: Certificate, p: int, q: int, g: int, ca_pu
     right = (certificate.commitment * pow(ca_public_key, e, p)) % p
 
     return left == right
+
+
+def validate_key_pair(public_key: int, private_key: int, g: int, p: int) -> bool:
+    """
+    Validates if a public key was generated from a private key.
+
+    Args:
+        public_key: The public key y
+        private_key: The private key x
+        g: The generator
+        p: The prime modulus
+
+    Returns:
+        bool: True if the key pair is valid, False otherwise
+    """
+    computed_public = pow(g, private_key, p)
+    return (computed_public - public_key) % p == 0

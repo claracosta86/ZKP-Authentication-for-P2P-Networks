@@ -84,7 +84,6 @@ class NodePeer:
 
                     chosen_certificates = random.sample(self.node.certificates, self.node.certificates_n - 1)
                     s = secrets.randbelow(self.node.q)
-                    print("S:", s)
                     V = [secrets.randbelow(self.node.q) for _ in range(self.node.certificates_n - 1)]  # Generate n-1 random values
 
                     commitment = self.node.get_authentication_commitment_request(s, V, chosen_certificates)
@@ -179,6 +178,7 @@ class NodePeer:
                     raise ValueError(f"Authentication challenge not sent for port {prover_port}")
 
                 verification_request = pickle.loads(bytes.fromhex(data_parts[2]))
+
                 c = self.node.peer_challenges[prover_port]
                 U = self.node.peer_U[prover_port]
 

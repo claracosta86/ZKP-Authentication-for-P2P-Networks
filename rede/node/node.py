@@ -10,6 +10,7 @@ from rede.models.authentication import AuthenticationRequest, AuthenticationComm
     AuthenticationVerificationRequest
 from rede.models.ca_models import RegisterCertificateRequest, Certificate
 from rede.utils import validate
+from rede.utils.validate import validate_key_pair
 from rede.zkp import SchnorrZKP
 
 class Node:
@@ -79,6 +80,14 @@ class Node:
 
         return int.from_bytes(h.digest(), 'big')
 
+    def is_valid_keypair(self):
+        return validate_key_pair(
+            self.public_key,
+            self.private_key,
+            self.g,
+            self.p
+        )
+
     def get_registration_request(self):
         return RegisterCertificateRequest(self.id, self.public_key)
 
@@ -87,9 +96,8 @@ class Node:
 
     def get_authentication_commitment_request(self, s, V, certificates: List[Certificate]):
         U = pow(self.g, s, self.p)
-
-        for i, v in enumerate(V):
-            U *= pow(certificates[i].public_key, v, self.p)
+        for i in range(len(V)):
+            U = (U * pow(certificates[i].public_key, V[i], self.p)) % self.p
 
         return AuthenticationCommitmentRequest(U)
 
@@ -104,7 +112,7 @@ class Node:
         V.insert(pos, vp)
         certificates.insert(pos, self.certificate)
 
-        r = (s - (self.private_key * vp)) % self.p
+        r = (s - (self.private_key * vp)) % self.q
 
         return AuthenticationVerificationRequest(r, V, certificates)
 
@@ -125,18 +133,15 @@ class Node:
 
         U_hat = pow(self.g, verification_request.r, self.p)
         for i in range(len(verification_request.V)):
-            U_hat *= pow(verification_request.certificates[i].public_key, verification_request.V[i], self.p)
+            U_hat = (U_hat * pow(verification_request.certificates[i].public_key, verification_request.V[i], self.p)) % self.p
 
-        print("U_hat - U:", U_hat - U)
-
-        if U_hat - U != 0:
+        if U_hat != U:
             print(f"[Node {self.port}] Verification failed: U_hat - U")
             return False
 
         else:
             print(f"[Node {self.port}] Verification successful: c_hat == c and U_hat == U")
             return True
-
 
 
     def validate_certificate(self, certificate: Certificate) -> bool:
