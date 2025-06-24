@@ -4,8 +4,10 @@ import secrets
 import socket
 import random
 import time
+from typing import Set, List
 
-from rede.models.authentication import AuthenticationRequest
+from rede.models.authentication import AuthenticationRequest, AuthenticationCommitmentRequest, \
+    AuthenticationVerificationRequest
 from rede.models.ca_models import RegisterCertificateRequest, Certificate
 from rede.utils import validate
 from rede.zkp import SchnorrZKP
@@ -43,7 +45,12 @@ class Node:
         self.bootstrap_port = bootstrap_port
         self.certificate = None
         self.certificates = set()
-        self.peers = []
+        self.certificates_n = 5
+        self.peer_challenges = {}
+        self.peer_U = {}
+        self.peers_allowed = []
+        self.peers_authenticated_at = []
+
 
         self.p = p
         self.q = q
@@ -51,8 +58,6 @@ class Node:
         self.private_key = self.init_private_key() # private key
         self.public_key = pow(self.g, self.private_key, self.p)
 
-        self.peer_public_keys = {}
-        
         self.zkp = SchnorrZKP(p, q, g, self.private_key)
 
         self.ca_public_key = ca_public_key  # Public key of the CA for certificate validation
@@ -72,15 +77,67 @@ class Node:
         h.update(self.id.encode('utf-8'))
         h.update(str(ru).encode('utf-8'))
 
-        return int.from_bytes(h.digest(), 'big') % self.q
+        return int.from_bytes(h.digest(), 'big')
 
     def get_registration_request(self):
         return RegisterCertificateRequest(self.id, self.public_key)
 
     def get_authentication_request(self):
-        """De momento, utilizando apenas o certificado do node"""
-        # TODO: implementar a logica ZKP utilizando os certificados retornados do bootstrap server
-        return AuthenticationRequest(self.certificate.public_key, self.certificate.commitment, self.certificate.signature)
+        return AuthenticationRequest(self.certificate.public_key, self.certificate.commitment,self.certificate.signature)
+
+    def get_authentication_commitment_request(self, s, V, certificates: List[Certificate]):
+        U = pow(self.g, s, self.p)
+
+        for i, v in enumerate(V):
+            U *= pow(certificates[i].public_key, v, self.p)
+
+        return AuthenticationCommitmentRequest(U)
+
+    def get_authentication_verification_request(self, s, c,V: List[int], certificates: List[Certificate]):
+
+        vp = V[0]
+        for i in range(1, len(V)):
+            vp ^= V[i]
+        vp ^= c
+
+        pos = random.randint(0, self.certificates_n-1)
+        V.insert(pos, vp)
+        certificates.insert(pos, self.certificate)
+
+        r = (s - (self.private_key * vp)) % self.p
+
+        return AuthenticationVerificationRequest(r, V, certificates)
+
+    def verify_authentication_request(self, c, U, verification_request: AuthenticationVerificationRequest):
+
+        for cert in verification_request.certificates:
+            if not self.validate_certificate(cert):
+                print(f"[Node {self.port}] Invalid certificate found during verification")
+                return False
+
+        c_hat = verification_request.V[0]
+        for i in range(1, len(verification_request.V)):
+            c_hat ^= verification_request.V[i]
+
+        if c_hat - c != 0:
+            print(f"[Node {self.port}] Verification failed: c_hat != c")
+            return False
+
+        U_hat = pow(self.g, verification_request.r, self.p)
+        for i in range(len(verification_request.V)):
+            U_hat *= pow(verification_request.certificates[i].public_key, verification_request.V[i], self.p)
+
+        print("U_hat - U:", U_hat - U)
+
+        if U_hat - U != 0:
+            print(f"[Node {self.port}] Verification failed: U_hat - U")
+            return False
+
+        else:
+            print(f"[Node {self.port}] Verification successful: c_hat == c and U_hat == U")
+            return True
+
+
 
     def validate_certificate(self, certificate: Certificate) -> bool:
         return validate.validate_certificate(certificate, self.p, self.q, self.g, self.ca_public_key)
@@ -212,7 +269,7 @@ class Node:
 
                     # Falsifica chave pública (ex: +1 na real)
                     spoof_cert = Certificate(public_key=self.certificate.public_key + 1,
-                                             commitment=self.certificate.commitment,
+                                             commitment=self.certificate.r,
                                              signature=self.certificate.signature)
                     cert_hex = pickle.dumps(spoof_cert).hex()
                     s.send(f"AUTH|{R}|{self.port}|{cert_hex}".encode())

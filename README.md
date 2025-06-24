@@ -16,7 +16,7 @@
     python -m rede.bootstrap_server.start_bootstrap_server 
     ```
 
-3. Execute os nós (peers):
+3. Em outros terminais, execute os nós (peers):
 
     ```bash
     python -m rede.node.start_node --port <port> --bootstrap <bootstrap_ip>:<bootstrap_port>
