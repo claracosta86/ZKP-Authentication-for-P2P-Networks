@@ -11,15 +11,15 @@ from rede.models.authentication import AuthenticationRequest, AuthenticationComm
 from rede.models.ca_models import RegisterCertificateRequest, Certificate
 from rede.utils import validate
 from rede.utils.validate import validate_key_pair
-from rede.zkp import SchnorrZKP
+
 
 class Node:
-    def __init__(self, ip, port, bootstrap_host, bootstrap_port, p, q, g, monitor=None, ca_public_key=None):
+    def __init__(self, host, port, bootstrap_host, bootstrap_port, p, q, g, monitor=None, ca_public_key=None):
         """
         Initializes a Node instance.
 
         Args:
-            ip (str): The IP address of the node.
+            host (str): The IP address of the node.
             port (int): The port number of the node.
             bootstrap_host (str): The IP address of the bootstrap node.
             bootstrap_port (int): The port number of the bootstrap node.
@@ -30,34 +30,66 @@ class Node:
             ca_public_key (int, optional): The public key of the Certificate Authority (CA) for certificate validation. Defaults to None.
 
         Attributes:
-            ip (str): Stores the IP address of the node.
+            id (str): A unique identifier for the node, based on its port.
+            host (str): Stores the IP address of the node.
             port (int): Stores the port number of the node.
-            certificate (str): Stores the certificate of the node.
             bootstrap_host (str): Stores the IP address of the bootstrap node.
             bootstrap_port (int): Stores the port number of the bootstrap node.
-            peers (list): A list of tuples containing the IP and port of connected peers.
+            certificate (Certificate or None): Stores the certificate of the node.
+            certificates (set): A set of certificates used for authentication.
+            certificates_n (int): The maximum number of certificates the node can handle.
+            peer_challenges (dict): A dictionary to store challenges for peer authentication.
+            peer_U (dict): A dictionary to store U values for peer authentication.
+            peers_allowed (list): A list of peers that are allowed to connect to the node.
+            peers_authenticated_in (list): A list of peers where the node is authenticated.
+            p (int): A prime number used in cryptographic operations.
+            q (int): A prime divisor of (p-1) used in cryptographic operations.
+            g (int): A generator for the cyclic group used in cryptographic operations.
+            private_key (int): The private key of the node, generated during initialization.
+            public_key (int): The public key of the node, derived from the private key.
+            ca_public_key (int or None): The public key of the Certificate Authority (CA) for certificate validation.
+            monitor (Monitor or None): An instance of the Monitor class for tracking metrics.
         """
 
+        # Unique identifier for the node based on its port
         self.id = f"Node{port}"
-        self.ip = ip
+
+        # Node's IP address and port
+        self.host = host
         self.port = port
+
+        # Bootstrap node's IP address and port
         self.bootstrap_host = bootstrap_host
         self.bootstrap_port = bootstrap_port
+
+        # Node's certificate and set of certificates for authentication
         self.certificate = None
         self.certificates = set()
+
+        # Maximum number of certificates the node can handle
         self.certificates_n = 5
+
+        # Dictionaries for storing challenges and U values for peer authentication
         self.peer_challenges = {}
         self.peer_U = {}
-        self.peers_allowed = []
-        self.peers_authenticated_in = []
 
+        # Lists for managing peers
+        self.peers_allowed = set()
+        self.peers_authenticated_in = set()
+
+        # Cryptographic parameters
         self.p = p
         self.q = q
         self.g = g
-        self.private_key = self.init_private_key() # private key
+
+        # Generate the private key and derive the public key
+        self.private_key = self.init_private_key()  # private key
         self.public_key = pow(self.g, self.private_key, self.p)
 
-        self.ca_public_key = ca_public_key  # Public key of the CA for certificate validation
+        # Public key of the Certificate Authority (CA) for certificate validation
+        self.ca_public_key = ca_public_key
+
+        # Optional monitor instance for tracking metrics
         self.monitor = monitor
 
     def set_certificate(self, certificate: Certificate):
@@ -142,3 +174,8 @@ class Node:
 
     def validate_certificate(self, certificate: Certificate) -> bool:
         return validate.validate_certificate(certificate, self.p, self.q, self.g, self.ca_public_key)
+
+    def print_status(self):
+        print(f"[Node {self.port}] Running on {self.host}:{self.port}")
+        print(f"[Node {self.port}] Peers Node{self.port} is authenticated: {self.peers_authenticated_in}")
+        print(f"[Node {self.port}] Peers Node{self.port} allows: {self.peers_allowed}")

@@ -70,8 +70,7 @@ class NodePeer:
                     await self.stop_async()
                     break
                 elif cmd == "status":
-                    print(f"[Node {self.port}] Running on {self.host}:{self.port}")
-                    print(f"[Node {self.port}] Certificate: {self.node.certificate}")
+                    self.node.print_status()
 
                 elif cmd == "authenticate":
                     if len(parts) != 2:
@@ -137,16 +136,17 @@ class NodePeer:
                 is_valid = self.node.verify_authentication_request(c, U, verification_request)
 
                 if is_valid:
-                    print(f"[Node {self.port}] Validated for {address}")
+                    print(f"[Node {self.port}] Validated for {prover_port}")
 
                     writer.write("OK".encode())
                     await writer.drain()
-                    print(f"[Node {self.port}] Authenticated succeeded for port {address}")
+                    print(f"[Node {self.port}] Authenticated succeeded for port {prover_port}")
+                    self.node.peers_allowed.add(int(prover_port))
 
                 else:
                     writer.write("FAILED".encode())
                     await writer.drain()
-                    print(f"[Node {self.port}] Authentication failed for {address}")
+                    print(f"[Node {self.port}] Authentication failed for {prover_port}")
 
                 del self.node.peer_U[prover_port]
                 del self.node.peer_challenges[prover_port]
@@ -167,7 +167,7 @@ class NodePeer:
             await writer.drain()
 
         except Exception as e:
-            print(f"[Node {self.port}] Connection failed: {e}")
+            print(f"[Node {self.port}] Connection failed with port {peer_port}: {e}")
 
 
     async def authenticate_to_bootstrap_and_get_certificates(self):
@@ -232,7 +232,7 @@ class NodePeer:
 
         if success:
             print(f"[Node {self.port}] Authentication succeeded with port {peer_port}")
-            self.node.peers_authenticated_in.append(peer_port)
+            self.node.peers_authenticated_in.add(int(peer_port))
         else:
             print(f"[Node {self.port}] Authentication failed with port {peer_port}")
 

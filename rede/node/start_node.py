@@ -25,6 +25,7 @@ async def main():
     # Create node
     node = Node(
         args.host,
+
         args.port,
         args.bootstrap_host,
         args.bootstrap_port,
