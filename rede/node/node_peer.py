@@ -56,7 +56,7 @@ class NodePeer:
 
         while self.running:
             try:
-                command = await ainput("Enter command: ")
+                command = await ainput("Enter command:\n")
                 if not command:
                     continue
 
