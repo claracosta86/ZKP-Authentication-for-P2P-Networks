@@ -56,7 +56,7 @@ class NodePeer:
 
         while self.running:
             try:
-                command = await ainput("Enter command: ")
+                command = await ainput("Enter command:\n")
                 if not command:
                     continue
 
@@ -126,10 +126,10 @@ class NodePeer:
                     await writer.drain()
                     writer.close()
 
-                # elif cmd == "send" and len(parts) >= 3:
-                #     peer_port = int(parts[1])
-                #     message = " ".join(parts[2:])
-                #     await self.send_message_async(self.host, peer_port, message)
+                elif cmd == "send" and len(parts) >= 3:
+                    peer_port = int(parts[1])
+                    message = " ".join(parts[2:])
+                    await self.send_message_async(self.host, peer_port, message)
 
                 else:
                     print(f"[Node {self.port}] Unknown command. Available: send <port> <message>, status, quit")
@@ -199,6 +199,15 @@ class NodePeer:
 
                 del self.node.peer_U[prover_port]
                 del self.node.peer_challenges[prover_port]
+        
+            else:
+                message = data.decode()
+                print(f"[Node {self.port}] Message received from {address}:\n{message}")
+
+                # Authomatically acknowledge the message
+                response = f"Acknowledged message:\n{message}"
+                writer.write(response.encode())
+                await writer.drain()
 
         except Exception as e:
             print(f"[Node {self.port}] Error handling client {address}: {e}")
@@ -209,6 +218,8 @@ class NodePeer:
     async def send_message_async(self, writer, peer_port: int, message: str):
         """Send a message to another peer"""
         try:
+            reader, writer = await asyncio.open_connection(self.host, peer_port)
+
             if not message.endswith('\n'):
                 message += '\n'
 
@@ -216,9 +227,15 @@ class NodePeer:
             await writer.drain()
             print(f"[Node {self.port}] Message sent to {peer_port}")
 
+            response = await reader.read(4096)
+            print(f"[Node {self.port}] Response from {peer_port}: {response.decode()}")
+
         except Exception as e:
             print(f"[Node {self.port}] Connection failed: {e}")
-
+        finally:
+            if 'writer' in locals():
+                writer.close()
+                await writer.wait_closed()
 
     async def authenticate_to_bootstrap_and_get_certificates(self):
         """Authenticate with the bootstrap server and retrieve certificates"""
