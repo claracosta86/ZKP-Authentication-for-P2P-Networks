@@ -27,6 +27,6 @@
 No terminal, podem ser executados os seguintes comandos:
 
 * `authenticate <port>`: Autentica com o nó que utiliza a porta `<port>`.
-* `send <port> <message>` *(Não implementado)* 
+* `send <port> <message>`
 * `status`: Exibe o status do nó.
 * `quit`: Finaliza a execução do nó.
