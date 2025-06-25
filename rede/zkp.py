@@ -13,28 +13,5 @@ p = int(p_hex.replace('\n', '').replace(' ', ''), 16)
 g = 2
 q = (p - 1) // 2
 
-
 def get_encrypting_values():
     return p, q, g
-
-class SchnorrZKP:
-    def __init__(self, p, q, g, secret):
-        self.p = p
-        self.q = q
-        self.g = g
-        self.secret = secret
-        self.public = pow(g, self.secret, p)
-
-    def create_commitment(self):
-        self.r = random.randint(1, self.q-1)
-        self.R = pow(self.g, self.r, self.p)
-        return self.R
-
-    def compute_response(self, challenge):
-        s = (self.r + challenge * self.secret) % self.q
-        return s
-
-    def verify(self, R, public, challenge, s):
-        left = pow(self.g, s, self.p)
-        right = (R * pow(public, challenge, self.p)) % self.p
-        return left == right
