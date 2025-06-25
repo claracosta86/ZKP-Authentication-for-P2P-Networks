@@ -7,6 +7,8 @@ from aioconsole import ainput
 
 from rede.models.ca_models import Certificate
 from rede.node.node import Node
+from rede.utils.authentication import prepare_commitment, prepare_verification
+
 
 class NodePeer:
     def __init__(self, node: Node, host: str, port: int):
@@ -219,28 +221,20 @@ class NodePeer:
     async def _perform_authentication(self, peer_port: int):
         """Performs the three-step authentication process with a peer."""
         # Step 1: Commitment Phase
-        commitment_data = self._prepare_commitment()
+        commitment_data = prepare_commitment(self.node)
         challenge = await self._send_commitment_and_get_challenge(peer_port, commitment_data)
 
         # Step 2: Verification Phase
-        verification_data = self._prepare_verification(commitment_data, challenge)
+        verification_data = prepare_verification(self.node, commitment_data, challenge)
 
         # Step 3: Verification Response
         success = await self._send_verification_and_get_response(peer_port, verification_data)
 
         if success:
             print(f"[Node {self.port}] Authentication succeeded with port {peer_port}")
-            self.node.peers_authenticated_at.append(peer_port)
+            self.node.peers_authenticated_in.append(peer_port)
         else:
             print(f"[Node {self.port}] Authentication failed with port {peer_port}")
-
-    def _prepare_commitment(self):
-        """Prepares the commitment phase data."""
-        chosen_certificates = random.sample(self.node.certificates, self.node.certificates_n - 1)
-        s = secrets.randbelow(self.node.q)
-        V = [secrets.randbelow(self.node.q) for _ in range(self.node.certificates_n - 1)]
-        commitment = self.node.get_authentication_commitment_request(s, V, chosen_certificates)
-        return {"s": s, "V": V, "certificates": chosen_certificates, "commitment": commitment}
 
     async def _send_commitment_and_get_challenge(self, peer_port: int, commitment_data: dict) -> int:
         """Sends commitment and receives challenge from peer."""
@@ -261,14 +255,6 @@ class NodePeer:
             writer.close()
             await writer.wait_closed()
 
-    def _prepare_verification(self, commitment_data: dict, challenge: int):
-        """Prepares verification data based on commitment and challenge."""
-        return self.node.get_authentication_verification_request(
-            commitment_data["s"],
-            challenge,
-            commitment_data["V"],
-            commitment_data["certificates"]
-        )
 
     async def _send_verification_and_get_response(self, peer_port: int, verification_data) -> bool:
         """Sends verification data and processes the response."""
