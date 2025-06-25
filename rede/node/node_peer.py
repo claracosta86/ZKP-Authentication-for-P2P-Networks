@@ -7,6 +7,8 @@ from aioconsole import ainput
 
 from rede.models.ca_models import Certificate
 from rede.node.node import Node
+from rede.utils.authentication import prepare_commitment, prepare_verification
+
 
 class NodePeer:
     def __init__(self, node: Node, host: str, port: int):
@@ -68,68 +70,17 @@ class NodePeer:
                     await self.stop_async()
                     break
                 elif cmd == "status":
-                    print(f"[Node {self.port}] Running on {self.host}:{self.port}")
-                    print(f"[Node {self.port}] Certificate: {self.node.certificate}")
+                    self.node.print_status()
 
                 elif cmd == "authenticate":
                     if len(parts) != 2:
                         print("[Node] Usage: authenticate <port>")
                         continue
-
                     peer_port = int(parts[1])
-
-                    # Commitment phase
-
-                    reader, writer = await asyncio.open_connection(self.host, peer_port)
-
-                    chosen_certificates = random.sample(self.node.certificates, self.node.certificates_n - 1)
-                    s = secrets.randbelow(self.node.q)
-                    V = [secrets.randbelow(self.node.q) for _ in range(self.node.certificates_n - 1)]  # Generate n-1 random values
-
-                    commitment = self.node.get_authentication_commitment_request(s, V, chosen_certificates)
-                    print(f"[Node {self.port}] Sending authentication commitment to port {peer_port}")
-
-                    commitment_request = pickle.dumps(commitment).hex()
-                    await self.send_message_async(writer, peer_port, f"AUTH|{self.port}|{commitment_request}")
-
-                    # Wait for challenge from prover
-                    challenge_response = await reader.read(4096)
-                    response_parts = challenge_response.decode().split("|")
-
-                    if len(response_parts) != 3:
-                        print(f"[Node {self.port}] Invalid response format from port {peer_port}")
-                        raise ValueError("Invalid challenge response format")
-
-                    c = int(response_parts[2])
-                    # Verification phase
-
-                    # Send verification request to prover
-                    verification = self.node.get_authentication_verification_request(s, c, V, chosen_certificates)
-                    verification_request = pickle.dumps(verification).hex()
-
-                    reader, writer = await asyncio.open_connection(self.host, peer_port)
-                    print(f"[Node {self.port}] Sending verification request to port {peer_port}")
-                    await self.send_message_async(writer, peer_port, f"VERIFICATION|{self.port}|{verification_request}")
-
-                    # Wait for final response
-                    response = await reader.read(4096)
-
-                    if response.decode() == "OK":
-                        print(f"[Node {self.port}] Authentication succeeded with port {peer_port}")
-                        self.node.peers_authenticated_at.append(peer_port)
-                    elif response.decode() == "FAILED":
-                        print(f"[Node {self.port}] Authentication failed with port {peer_port}")
-                    else:
-                        print(f"[Node {self.port}] Unexpected response from port {peer_port}")
-                        raise ValueError(f"Unexpected response from port {peer_port}")
-
-                    await writer.drain()
-                    writer.close()
-
-                elif cmd == "send" and len(parts) >= 3:
-                    peer_port = int(parts[1])
-                    message = " ".join(parts[2:])
-                    await self.send_message_async(self.host, peer_port, message)
+                    try:
+                        await self._perform_authentication(peer_port)
+                    except Exception as e:
+                        print(f"[Node {self.port}] Authentication failed: {e}")
 
                 else:
                     print(f"[Node {self.port}] Unknown command. Available: send <port> <message>, status, quit")
@@ -159,7 +110,6 @@ class NodePeer:
 
                 commitment = pickle.loads(bytes.fromhex(data_parts[2]))
                 U = commitment.commitment
-                #Send challenge to prover
                 c = secrets.randbelow(self.node.q)
                 print(f"[Node {self.port}] Sending challenge to port {prover_port}")
                 self.node.peer_challenges[prover_port] = c
@@ -186,28 +136,20 @@ class NodePeer:
                 is_valid = self.node.verify_authentication_request(c, U, verification_request)
 
                 if is_valid:
-                    print(f"[Node {self.port}] Validated for {address}")
+                    print(f"[Node {self.port}] Validated for {prover_port}")
 
                     writer.write("OK".encode())
                     await writer.drain()
-                    print(f"[Node {self.port}] Authenticated succeeded for port {address}")
+                    print(f"[Node {self.port}] Authenticated succeeded for port {prover_port}")
+                    self.node.peers_allowed.add(int(prover_port))
 
                 else:
                     writer.write("FAILED".encode())
                     await writer.drain()
-                    print(f"[Node {self.port}] Authentication failed for {address}")
+                    print(f"[Node {self.port}] Authentication failed for {prover_port}")
 
                 del self.node.peer_U[prover_port]
                 del self.node.peer_challenges[prover_port]
-        
-            else:
-                message = data.decode()
-                print(f"[Node {self.port}] Message received from {address}:\n{message}")
-
-                # Authomatically acknowledge the message
-                response = f"Acknowledged message:\n{message}"
-                writer.write(response.encode())
-                await writer.drain()
 
         except Exception as e:
             print(f"[Node {self.port}] Error handling client {address}: {e}")
@@ -218,24 +160,15 @@ class NodePeer:
     async def send_message_async(self, writer, peer_port: int, message: str):
         """Send a message to another peer"""
         try:
-            reader, writer = await asyncio.open_connection(self.host, peer_port)
-
             if not message.endswith('\n'):
                 message += '\n'
 
             writer.write(message.encode())
             await writer.drain()
-            print(f"[Node {self.port}] Message sent to {peer_port}")
-
-            response = await reader.read(4096)
-            print(f"[Node {self.port}] Response from {peer_port}: {response.decode()}")
 
         except Exception as e:
-            print(f"[Node {self.port}] Connection failed: {e}")
-        finally:
-            if 'writer' in locals():
-                writer.close()
-                await writer.wait_closed()
+            print(f"[Node {self.port}] Connection failed with port {peer_port}: {e}")
+
 
     async def authenticate_to_bootstrap_and_get_certificates(self):
         """Authenticate with the bootstrap server and retrieve certificates"""
@@ -285,3 +218,59 @@ class NodePeer:
             await self.server.wait_closed()
             print(f"[Node {self.port}] Node stopped")
 
+    async def _perform_authentication(self, peer_port: int):
+        """Performs the three-step authentication process with a peer."""
+        # Step 1: Commitment Phase
+        commitment_data = prepare_commitment(self.node)
+        challenge = await self._send_commitment_and_get_challenge(peer_port, commitment_data)
+
+        # Step 2: Verification Phase
+        verification_data = prepare_verification(self.node, commitment_data, challenge)
+
+        # Step 3: Verification Response
+        success = await self._send_verification_and_get_response(peer_port, verification_data)
+
+        if success:
+            print(f"[Node {self.port}] Authentication succeeded with port {peer_port}")
+            self.node.peers_authenticated_in.add(int(peer_port))
+        else:
+            print(f"[Node {self.port}] Authentication failed with port {peer_port}")
+
+    async def _send_commitment_and_get_challenge(self, peer_port: int, commitment_data: dict) -> int:
+        """Sends commitment and receives challenge from peer."""
+        reader, writer = await asyncio.open_connection(self.host, peer_port)
+        try:
+            print(f"[Node {self.port}] Sending authentication commitment to port {peer_port}")
+            commitment_request = pickle.dumps(commitment_data["commitment"]).hex()
+            await self.send_message_async(writer, peer_port, f"AUTH|{self.port}|{commitment_request}")
+
+            challenge_response = await reader.read(4096)
+            response_parts = challenge_response.decode().split("|")
+
+            if len(response_parts) != 3:
+                raise ValueError("Invalid challenge response format")
+
+            return int(response_parts[2])
+        finally:
+            writer.close()
+            await writer.wait_closed()
+
+
+    async def _send_verification_and_get_response(self, peer_port: int, verification_data) -> bool:
+        """Sends verification data and processes the response."""
+        reader, writer = await asyncio.open_connection(self.host, peer_port)
+        try:
+            print(f"[Node {self.port}] Sending verification request to port {peer_port}")
+            verification_request = pickle.dumps(verification_data).hex()
+            await self.send_message_async(writer, peer_port, f"VERIFICATION|{self.port}|{verification_request}")
+
+            response = await reader.read(4096)
+            response_text = response.decode()
+
+            if response_text not in ["OK", "FAILED"]:
+                raise ValueError(f"Unexpected response from port {peer_port}")
+
+            return response_text == "OK"
+        finally:
+            writer.close()
+            await writer.wait_closed()
