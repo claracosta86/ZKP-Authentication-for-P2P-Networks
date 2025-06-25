@@ -126,11 +126,6 @@ class NodePeer:
                     await writer.drain()
                     writer.close()
 
-                # elif cmd == "send" and len(parts) >= 3:
-                #     peer_port = int(parts[1])
-                #     message = " ".join(parts[2:])
-                #     await self.send_message_async(self.host, peer_port, message)
-
                 else:
                     print(f"[Node {self.port}] Unknown command. Available: send <port> <message>, status, quit")
 
@@ -159,7 +154,6 @@ class NodePeer:
 
                 commitment = pickle.loads(bytes.fromhex(data_parts[2]))
                 U = commitment.commitment
-                #Send challenge to prover
                 c = secrets.randbelow(self.node.q)
                 print(f"[Node {self.port}] Sending challenge to port {prover_port}")
                 self.node.peer_challenges[prover_port] = c
@@ -214,7 +208,6 @@ class NodePeer:
 
             writer.write(message.encode())
             await writer.drain()
-            print(f"[Node {self.port}] Message sent to {peer_port}")
 
         except Exception as e:
             print(f"[Node {self.port}] Connection failed: {e}")
