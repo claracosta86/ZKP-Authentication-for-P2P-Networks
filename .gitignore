@@ -36,3 +36,4 @@ wheels/
 .coverage
 htmlcov/
 .pytest_cache/
+output/

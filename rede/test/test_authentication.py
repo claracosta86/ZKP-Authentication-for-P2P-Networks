@@ -1,7 +1,9 @@
 import asyncio
+import csv
 import random
 import secrets
 import statistics
+from pathlib import Path
 
 from rede.bootstrap_server.bootstrap_server import BootstrapServer
 from rede.ca.ca import CertificateAuthority
@@ -98,6 +100,33 @@ async def run_authentication_test(num_nodes=3, iterations=5, num_certs = 5):
     for peer in node_peers:
         await peer.stop_async()
 
+
+    results = {
+        'num_nodes': num_nodes,
+        'iterations': iterations,
+        'num_certs': num_certs,
+        'total_authentications': len(latencies),
+        'avg_latency': f"{avg_latency:.4f}",
+        'std_dev': f"{std_dev:.4f}",
+        'min_latency': f"{min(latencies):.4f}",
+        'max_latency': f"{max(latencies):.4f}"
+    }
+
+    # Define CSV file path
+    csv_file = Path('output/authentication_results.csv')
+    csv_file.parent.mkdir(parents=True, exist_ok=True)
+    # Check if file exists to determine if we need to write headers
+    file_exists = Path(csv_file).exists()
+
+    # Write to CSV
+    with open(csv_file, 'a', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=results.keys())
+
+        # Write headers only if file is new
+        if not file_exists:
+            writer.writeheader()
+
+        writer.writerow(results)
 
 # Run the test
 if __name__ == "__main__":
