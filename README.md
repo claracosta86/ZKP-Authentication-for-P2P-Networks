@@ -1,8 +1,8 @@
-# Projeto---Rede-P2P
+# Project---P2P-Network
 
-## Execução do projeto
+## Project Execution
 
-1. Crie um ambiente virtual e instale as dependências:
+1. Create a virtual environment and install dependencies:
 
     ```bash
     python -m venv venv
@@ -10,23 +10,26 @@
     pip install -r requirements.txt
     ```
 
-2. Execute o bootstrap server:
+2. Run the bootstrap server:
 
     ```bash
     python -m rede.bootstrap_server.start_bootstrap_server 
     ```
 
-3. Em outros terminais, execute os nós (peers):
+3. In other terminals, run the nodes (peers):
 
     ```bash
-    python -m rede.node.start_node --port <port> --bootstrap <bootstrap_ip>:<bootstrap_port>
+    python -m rede.node.start_node --port <port>
     ```
 
-## Funcionamento do client dos nós:
+4. To test an attack scenario, where the attacker doesn't have the certificate's private key:
+    ```bash
+    python -m rede.node.start_node --port <port> --attacker
+    ```
+## Node client operation:
 
-No terminal, podem ser executados os seguintes comandos:
+The following commands can be executed in the terminal:
 
-* `authenticate <port>`: Autentica com o nó que utiliza a porta `<port>`.
-* `send <port> <message>`: Envia uma mensagem ao nó indicado com `<port>`, esse nó também deve estar ativo.
-* `status`: Exibe o status do nó.
-* `quit`: Finaliza a execução do nó.
+* `authenticate <port>`: Authenticates with the node using port `<port>`.
+* `status`: Displays the node's status.
+* `quit`: Ends the node execution.

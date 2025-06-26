@@ -15,6 +15,8 @@ class Monitor:
             "latencies": []
         })
 
+        self.latencies = []
+
     def log_sent(self, node_port, is_attack=False):
         stats = self.attack_stats if is_attack else self.normal_stats
         stats[node_port]["sent"] += 1

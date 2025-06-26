@@ -53,13 +53,13 @@ class BootstrapServer:
             data_parts = data.decode().split("|")
             request_type = data_parts[0]
 
-            print(f"Received request: {request_type}")
+            print(f"[Bootstrap]Received request: {request_type}")
 
             if request_type == "AUTH":
                 if len(data_parts) != 3:
                     raise ValueError("Invalid authentication format")
 
-                print(f"[Node {self.port}] Authentication request received from", address)
+                print(f"[Bootstrap] Authentication request received from", address)
                 client_port = data_parts[1]
                 authenticate_request = pickle.loads(bytes.fromhex(data_parts[2]))
 
@@ -69,7 +69,7 @@ class BootstrapServer:
 
                 certificate = Certificate(public_key=public_key, commitment=R, signature=signature)
                 is_valid = self.validate_certificate(certificate)
-                print(f"[Node {self.port}] Certificate valid: {is_valid}")
+                print(f"[Bootstrap] Certificate from {client_port} is valid: {is_valid}")
                 if is_valid:
                     print(f"[Bootstrap] Validated for {client_port}")
 

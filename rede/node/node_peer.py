@@ -2,6 +2,7 @@ import asyncio
 import pickle
 import random
 import secrets
+import time
 
 from aioconsole import ainput
 
@@ -11,12 +12,13 @@ from rede.utils.authentication import prepare_commitment, prepare_verification
 
 
 class NodePeer:
-    def __init__(self, node: Node, host: str, port: int):
+    def __init__(self, node: Node, host: str, port: int, commands_allowed = True):
         self.node = node
         self.host = host
         self.port = port
         self.server = None
         self.running = False
+        self.commands_allowed = commands_allowed
         self.k = 5 # number of certificates to get from bootstrap server
 
     async def start_async(self):
@@ -33,11 +35,16 @@ class NodePeer:
 
         async with self.server:
             server_task = asyncio.create_task(self.server.serve_forever())
-            input_task = asyncio.create_task(self.handle_input())
+            tasks = [server_task]
+
+            if self.commands_allowed:
+                input_task = asyncio.create_task(self.handle_input())
+                tasks.append(input_task)
+
             await self.authenticate_to_bootstrap_and_get_certificates()
             try:
                 _, pending = await asyncio.wait(
-                    [server_task, input_task],
+                    tasks,
                     return_when=asyncio.FIRST_COMPLETED
                 )
                 for task in pending:
@@ -78,7 +85,7 @@ class NodePeer:
                         continue
                     peer_port = int(parts[1])
                     try:
-                        await self._perform_authentication(peer_port)
+                        await self.perform_authentication(peer_port)
                     except Exception as e:
                         print(f"[Node {self.port}] Authentication failed: {e}")
 
@@ -218,9 +225,10 @@ class NodePeer:
             await self.server.wait_closed()
             print(f"[Node {self.port}] Node stopped")
 
-    async def _perform_authentication(self, peer_port: int):
+    async def perform_authentication(self, peer_port: int):
         """Performs the three-step authentication process with a peer."""
         # Step 1: Commitment Phase
+        start = time.time()
         commitment_data = prepare_commitment(self.node)
         challenge = await self._send_commitment_and_get_challenge(peer_port, commitment_data)
 
@@ -235,6 +243,7 @@ class NodePeer:
             self.node.peers_authenticated_in.add(int(peer_port))
         else:
             print(f"[Node {self.port}] Authentication failed with port {peer_port}")
+        self.node.monitor.latencies.append(time.time() - start)
 
     async def _send_commitment_and_get_challenge(self, peer_port: int, commitment_data: dict) -> int:
         """Sends commitment and receives challenge from peer."""
