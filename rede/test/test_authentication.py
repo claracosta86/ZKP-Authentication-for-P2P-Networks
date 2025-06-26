@@ -130,4 +130,4 @@ async def run_authentication_test(num_nodes=3, iterations=5, num_certs = 5):
 
 # Run the test
 if __name__ == "__main__":
-    asyncio.run(run_authentication_test(num_nodes=4, iterations=3))
+    asyncio.run(run_authentication_test())
