@@ -56,7 +56,7 @@ async def run_authentication_test(num_nodes=10, iterations=5, num_certs = 5, out
         node.set_certificate(ca.sign_public_key(node.get_registration_request()))
         node.set_certificates(random.sample(list(mock_certs), k=min(len(mock_certs), num_certs)))
 
-        node_peer = NodePeer(node, host, port, commands_allowed=False)
+        node_peer = NodePeer(node, host, port, commands_allowed=False, k= num_certs)
 
         nodes.append(node)
         node_peers.append(node_peer)

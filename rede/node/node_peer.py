@@ -12,14 +12,15 @@ from rede.utils.authentication import prepare_commitment, prepare_verification
 
 
 class NodePeer:
-    def __init__(self, node: Node, host: str, port: int, commands_allowed = True):
+    def __init__(self, node: Node, host: str, port: int, commands_allowed = True, k: int = 5):
+
         self.node = node
         self.host = host
         self.port = port
         self.server = None
         self.running = False
         self.commands_allowed = commands_allowed
-        self.k = 5 # number of certificates to get from bootstrap server
+        self.k = k # number of certificates to get from bootstrap server
 
     async def start_async(self):
         """Start the node peer server and command handler"""
