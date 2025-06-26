@@ -33,6 +33,7 @@ async def main():
         p, q, g,
         Monitor(),
         ca.get_ca_public_key(),
+        5
     )
 
     # Create node peer server

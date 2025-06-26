@@ -14,7 +14,7 @@ from rede.monitor import Monitor
 from rede.zkp import get_encrypting_values
 
 
-async def run_authentication_test(num_nodes=3, iterations=5, num_certs = 5):
+async def run_authentication_test(num_nodes=10, iterations=5, num_certs = 5, outuput_file='output/authentication_results.csv'):
     """
     Run authentication test between multiple nodes.
 
@@ -38,7 +38,7 @@ async def run_authentication_test(num_nodes=3, iterations=5, num_certs = 5):
     node_peers = []
 
     mock_certs = set()
-    for i in range(1, 11):
+    for i in range(1, num_certs* num_nodes):
         mock_id = f"mock_node_{i}"
         mock_public_key = pow(g, secrets.randbelow(q), p)
 
@@ -50,9 +50,9 @@ async def run_authentication_test(num_nodes=3, iterations=5, num_certs = 5):
     asyncio.create_task(bootstrap_server.start_async())
 
     # Create common nodes
-    for i in range(1, num_nodes):
+    for i in range(1, num_nodes+1):
         port = base_port + i
-        node = Node(host, port, host, base_port, p, q, g, monitor, ca.get_ca_public_key())
+        node = Node(host, port, host, base_port, p, q, g, monitor, ca.get_ca_public_key(), certificates_number=num_certs)
         node.set_certificate(ca.sign_public_key(node.get_registration_request()))
         node.set_certificates(random.sample(list(mock_certs), k=min(len(mock_certs), num_certs)))
 
@@ -72,7 +72,7 @@ async def run_authentication_test(num_nodes=3, iterations=5, num_certs = 5):
             print(f"Error starting peer: {e}")
             raise
 
-    await asyncio.sleep(3)
+    await asyncio.sleep(1)
     print("All nodes started successfully.")
     # Additional wait to ensure all nodes are stable
 
@@ -83,6 +83,12 @@ async def run_authentication_test(num_nodes=3, iterations=5, num_certs = 5):
                 # Authenticate in both directions
                 await node_peers[i].perform_authentication(node_peers[j].port)
                 await node_peers[j].perform_authentication(node_peers[i].port)
+
+    # Stop all nodes
+    for peer in node_peers:
+        await peer.stop_async()
+
+    asyncio.create_task(bootstrap_server.stop_async())
 
     # Calculate statistics
     latencies = monitor.latencies
@@ -96,11 +102,6 @@ async def run_authentication_test(num_nodes=3, iterations=5, num_certs = 5):
     print(f"Min latency: {min(latencies):.4f} seconds")
     print(f"Max latency: {max(latencies):.4f} seconds")
 
-    # Stop all nodes
-    for peer in node_peers:
-        await peer.stop_async()
-
-
     results = {
         'num_nodes': num_nodes,
         'iterations': iterations,
@@ -113,7 +114,7 @@ async def run_authentication_test(num_nodes=3, iterations=5, num_certs = 5):
     }
 
     # Define CSV file path
-    csv_file = Path('output/authentication_results.csv')
+    csv_file = Path(outuput_file)
     csv_file.parent.mkdir(parents=True, exist_ok=True)
     # Check if file exists to determine if we need to write headers
     file_exists = Path(csv_file).exists()
@@ -130,4 +131,47 @@ async def run_authentication_test(num_nodes=3, iterations=5, num_certs = 5):
 
 # Run the test
 if __name__ == "__main__":
-    asyncio.run(run_authentication_test())
+    async def run_mass_tests():
+        network_scale_test_params = [
+            (2, 5, 5),
+            (3, 5, 5),
+            (4, 5, 5),
+            (5, 5, 5),
+            (6, 5, 5),
+            (7, 5, 5),
+            (8, 5, 5),
+            (9, 5, 5),
+            (10, 5, 5),
+            (12, 5, 5),
+            (14, 5, 5),
+            (16, 5, 5),
+            (18, 5, 5),
+            (20, 5, 5),
+            (25, 5, 5),
+            (30, 5, 5),
+            (35, 5, 5),
+            (40, 5, 5),
+        ]
+
+        for nodes, iterations, certs in network_scale_test_params:
+            print(f"\nRunning test with {nodes} nodes, {iterations} iterations, {certs} certificates")
+            await run_authentication_test(nodes, iterations, certs, outuput_file= 'output/network_scale_results.csv')
+
+        certificate_number_test_params = [
+            (5, 5, 2),    # Minimal certificates
+            (5, 5, 4),    # Very small scale
+            (5, 5, 6),    # Small scale
+            (5, 5, 8),    # Small-medium scale
+            (5, 5, 10),   # Medium scale
+            (5, 5, 12),   # Medium-large scale
+            (5, 5, 15),   # Large scale
+            (5, 5, 18),   # Very large scale
+            (5, 5, 20),   # Maximum scale
+            (5, 5, 25)    # Extended scale
+        ]
+
+        for nodes, iterations, certs in certificate_number_test_params:
+            print(f"\nRunning test with {nodes} nodes, {iterations} iterations, {certs} certificates")
+            await run_authentication_test(nodes, iterations, certs, outuput_file= 'output/certificate_number_results.csv')
+
+    asyncio.run(run_mass_tests())

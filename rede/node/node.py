@@ -15,7 +15,7 @@ from rede.utils.validate import validate_key_pair
 
 
 class Node:
-    def __init__(self, host, port, bootstrap_host, bootstrap_port, p, q, g, monitor: Monitor = None, ca_public_key=None):
+    def __init__(self, host, port, bootstrap_host, bootstrap_port, p, q, g, monitor: Monitor = None, ca_public_key=None, certificates_number: int = 5):
         """
         Initializes a Node instance.
 
@@ -68,7 +68,7 @@ class Node:
         self.certificates = set()
 
         # Maximum number of certificates the node can handle
-        self.certificates_n = 5
+        self.certificates_n = certificates_number
 
         # Dictionaries for storing challenges and U values for peer authentication
         self.peer_challenges = {}
