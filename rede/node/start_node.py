@@ -27,17 +27,16 @@ async def main():
     # Create node
     node = Node(
         args.host,
-
         args.port,
         args.bootstrap_host,
         args.bootstrap_port,
         p, q, g,
         Monitor(),
-        ca.get_ca_public_key()
+        ca.get_ca_public_key(),
     )
 
     # Create node peer server
-    node_peer = NodePeer(node, args.host, args.port)
+    node_peer = NodePeer(node, args.host, args.port, commands_allowed = True)
 
     try:
         # Register with CA first

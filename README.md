@@ -31,6 +31,5 @@
 The following commands can be executed in the terminal:
 
 * `authenticate <port>`: Authenticates with the node using port `<port>`.
-* `send <port> <message>`: Sends a message to the node indicated by `<port>`, this node must also be active.
 * `status`: Displays the node's status.
 * `quit`: Ends the node execution.

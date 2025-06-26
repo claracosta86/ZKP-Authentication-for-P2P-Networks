@@ -9,12 +9,13 @@ from typing import Set, List
 from rede.models.authentication import AuthenticationRequest, AuthenticationCommitmentRequest, \
     AuthenticationVerificationRequest
 from rede.models.ca_models import RegisterCertificateRequest, Certificate
+from rede.monitor import Monitor
 from rede.utils import validate
 from rede.utils.validate import validate_key_pair
 
 
 class Node:
-    def __init__(self, host, port, bootstrap_host, bootstrap_port, p, q, g, monitor=None, ca_public_key=None):
+    def __init__(self, host, port, bootstrap_host, bootstrap_port, p, q, g, monitor: Monitor = None, ca_public_key=None):
         """
         Initializes a Node instance.
 
