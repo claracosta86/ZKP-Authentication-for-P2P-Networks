@@ -1,4 +1,4 @@
-# Project---P2P-Network
+# ZKP-Authentication-for-P2P-Networks
 
 ## Project Execution
 
